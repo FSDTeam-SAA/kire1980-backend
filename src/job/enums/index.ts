@@ -14,6 +14,7 @@ export enum ResponseStatus {
   POSITIVE = 'POSITIVE',
   NEGATIVE = 'NEGATIVE',
   NEUTRAL = 'NEUTRAL',
+  RESPONSE_RECEIVED = 'RESPONSE_RECEIVED',
 }
 
 export enum JobLocationType {
@@ -79,6 +80,7 @@ export enum JobTimelineEventType {
   DECLINED = 'DECLINED',
   NOTE_ADDED = 'NOTE_ADDED',
   FOLLOW_UP = 'FOLLOW_UP',
+  RESPONSE_RECEIVED = 'RESPONSE_RECEIVED',
   OTHER = 'OTHER',
 }
 

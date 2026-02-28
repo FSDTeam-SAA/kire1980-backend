@@ -1,10 +1,4 @@
-import 'dotenv/config';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from '@prisma/client';
+// DEPRECATED: This file is no longer used - migrated to Mongoose
+// Keeping this file as a stub to avoid breaking imports
 
-const connectionString = `${process.env.DATABASE_URL}`;
-
-const adapter = new PrismaPg({ connectionString });
-const prisma = new PrismaClient({ adapter });
-
-export { prisma };
+export const prisma = null;

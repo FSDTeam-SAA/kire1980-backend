@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Connection, ClientSession } from 'mongoose';
 import { Job as JobDocument } from '../database/schemas';
@@ -138,7 +142,7 @@ export class JobService {
       );
 
       const jobId = newJob[0]._id.toString();
-      const jobData = newJob[0].toObject();
+      const jobData: any = newJob[0].toObject();
 
       // Log activity
       await this.activityLogService.logCreate(
@@ -349,7 +353,11 @@ export class JobService {
   /**
    * Get a single job by ID
    */
-  async findJobById(authId: string, jobId: string, includeRelations = false) {
+  async findJobById(
+    authId: string,
+    jobId: string,
+    includeRelations = false,
+  ): Promise<any> {
     const job = await this.jobModel.findById(jobId).lean().exec();
 
     if (!job) {
@@ -661,10 +669,14 @@ export class JobService {
   ) {
     const existingJob = await this.findJobById(authId, jobId);
 
-    const updatedJob = await this.prisma.job.update({
-      where: { id: jobId },
-      data: { isArchived: !existingJob.isArchived },
-    });
+    const updatedJob = await this.jobModel
+      .findByIdAndUpdate(
+        jobId,
+        { $set: { isArchived: !existingJob.isArchived } },
+        { new: true },
+      )
+      .lean()
+      .exec();
 
     return updatedJob;
   }
@@ -675,10 +687,14 @@ export class JobService {
   async toggleFavoriteJob(authId: string, jobId: string) {
     const existingJob = await this.findJobById(authId, jobId);
 
-    const updatedJob = await this.prisma.job.update({
-      where: { id: jobId },
-      data: { isFavorite: !existingJob.isFavorite },
-    });
+    const updatedJob = await this.jobModel
+      .findByIdAndUpdate(
+        jobId,
+        { $set: { isFavorite: !existingJob.isFavorite } },
+        { new: true },
+      )
+      .lean()
+      .exec();
 
     return updatedJob;
   }
@@ -688,13 +704,14 @@ export class JobService {
    */
   async bulkArchiveJobs(authId: string, jobIds: string[]) {
     // Verify all jobs belong to user
-    const jobs = await this.prisma.job.findMany({
-      where: {
-        id: { in: jobIds },
+    const jobs = await this.jobModel
+      .find({
+        _id: { $in: jobIds },
         authId,
         deletedAt: null,
-      },
-    });
+      })
+      .lean()
+      .exec();
 
     if (jobs.length !== jobIds.length) {
       throw new ForbiddenException(
@@ -702,10 +719,9 @@ export class JobService {
       );
     }
 
-    await this.prisma.job.updateMany({
-      where: { id: { in: jobIds } },
-      data: { isArchived: true },
-    });
+    await this.jobModel
+      .updateMany({ _id: { $in: jobIds } }, { $set: { isArchived: true } })
+      .exec();
 
     return { message: `${jobIds.length} jobs archived successfully` };
   }
@@ -714,13 +730,14 @@ export class JobService {
    * Bulk delete jobs (soft delete)
    */
   async bulkDeleteJobs(authId: string, jobIds: string[]) {
-    const jobs = await this.prisma.job.findMany({
-      where: {
-        id: { in: jobIds },
+    const jobs = await this.jobModel
+      .find({
+        _id: { $in: jobIds },
         authId,
         deletedAt: null,
-      },
-    });
+      })
+      .lean()
+      .exec();
 
     if (jobs.length !== jobIds.length) {
       throw new ForbiddenException(
@@ -728,10 +745,9 @@ export class JobService {
       );
     }
 
-    await this.prisma.job.updateMany({
-      where: { id: { in: jobIds } },
-      data: { deletedAt: new Date() },
-    });
+    await this.jobModel
+      .updateMany({ _id: { $in: jobIds } }, { $set: { deletedAt: new Date() } })
+      .exec();
 
     return { message: `${jobIds.length} jobs deleted successfully` };
   }
@@ -750,61 +766,59 @@ export class JobService {
   ) {
     const job = await this.findJobById(authId, jobId);
 
-    const followUp = await this.prisma.$transaction(async (tx) => {
-      const newFollowUp = await tx.jobFollowUp.create({
-        data: {
+    const session = await this.connection.startSession();
+    session.startTransaction();
+
+    try {
+      const newFollowUp = {
+        scheduledDate: new Date(createFollowUpDto.scheduledDate),
+        type: createFollowUpDto.type,
+        subject: createFollowUpDto.subject,
+        message: createFollowUpDto.message,
+        status: FollowUpStatus.PENDING,
+        createdAt: new Date(),
+      };
+
+      // Add follow-up to job's followUps array and timeline
+      const timelineEvent = {
+        eventType: JobTimelineEventType.FOLLOW_UP,
+        title: 'Follow-up Scheduled',
+        description: `${createFollowUpDto.type} follow-up scheduled for ${new Date(createFollowUpDto.scheduledDate).toLocaleDateString()}`,
+        metadata: { type: createFollowUpDto.type },
+        createdAt: new Date(),
+      };
+
+      const updatedJob = await this.jobModel
+        .findByIdAndUpdate(
           jobId,
-          scheduledDate: new Date(createFollowUpDto.scheduledDate),
-          type: createFollowUpDto.type,
-          subject: createFollowUpDto.subject,
-          message: createFollowUpDto.message,
-        },
-      });
-
-      // Update job's next follow-up date
-      const pendingFollowUps = await tx.jobFollowUp.findMany({
-        where: { jobId, status: 'PENDING' },
-        orderBy: { scheduledDate: 'asc' },
-        take: 1,
-      });
-
-      if (pendingFollowUps.length > 0) {
-        await tx.job.update({
-          where: { id: jobId },
-          data: { nextFollowUpDate: pendingFollowUps[0].scheduledDate },
-        });
-      }
-
-      // Create timeline event
-      await tx.jobTimelineEvent.create({
-        data: {
-          jobId,
-          eventType: 'FOLLOW_UP_SENT',
-          title: 'Follow-up Scheduled',
-          description: `${createFollowUpDto.type} follow-up scheduled for ${new Date(createFollowUpDto.scheduledDate).toLocaleDateString()}`,
-          metadata: {
-            followUpId: newFollowUp.id,
-            type: createFollowUpDto.type,
+          {
+            $push: {
+              followUps: newFollowUp,
+              timeline: timelineEvent,
+            },
+            $set: { nextFollowUpDate: newFollowUp.scheduledDate },
           },
-        },
-      });
+          { session, new: true },
+        )
+        .lean()
+        .exec();
 
-      return newFollowUp;
-    });
-
-    return followUp;
+      await session.commitTransaction();
+      return updatedJob.followUps[updatedJob.followUps.length - 1];
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      await session.endSession();
+    }
   }
 
   /**
    * Get all follow-ups for a job
    */
   async getFollowUps(authId: string, jobId: string) {
-    await this.findJobById(authId, jobId);
-
-    return this.prisma.jobFollowUp.findMany({
-      where: { jobId },
-      orderBy: { scheduledDate: 'desc' },
-    });
+    const job = await this.findJobById(authId, jobId);
+    return job.followUps || [];
   }
 
   /**
@@ -816,32 +830,46 @@ export class JobService {
     followUpId: string,
     updateFollowUpDto: UpdateJobFollowUpDto,
   ) {
-    await this.findJobById(authId, jobId);
+    const job = await this.findJobById(authId, jobId);
 
-    const followUp = await this.prisma.jobFollowUp.findUnique({
-      where: { id: followUpId },
-    });
+    const followUpIndex = job.followUps?.findIndex(
+      (f) => f._id?.toString() === followUpId,
+    );
 
-    if (!followUp || followUp.jobId !== jobId) {
+    if (followUpIndex === -1 || followUpIndex === undefined) {
       throw new NotFoundException('Follow-up not found');
     }
 
-    return this.prisma.jobFollowUp.update({
-      where: { id: followUpId },
-      data: {
-        scheduledDate: updateFollowUpDto.scheduledDate
-          ? new Date(updateFollowUpDto.scheduledDate)
-          : undefined,
-        completedDate: updateFollowUpDto.completedDate
-          ? new Date(updateFollowUpDto.completedDate)
-          : undefined,
-        status: updateFollowUpDto.status,
-        type: updateFollowUpDto.type,
-        subject: updateFollowUpDto.subject,
-        message: updateFollowUpDto.message,
-        response: updateFollowUpDto.response,
-      },
-    });
+    const updateFields: any = {};
+    if (updateFollowUpDto.scheduledDate)
+      updateFields[`followUps.${followUpIndex}.scheduledDate`] = new Date(
+        updateFollowUpDto.scheduledDate,
+      );
+    if (updateFollowUpDto.completedDate)
+      updateFields[`followUps.${followUpIndex}.completedDate`] = new Date(
+        updateFollowUpDto.completedDate,
+      );
+    if (updateFollowUpDto.status)
+      updateFields[`followUps.${followUpIndex}.status`] =
+        updateFollowUpDto.status;
+    if (updateFollowUpDto.type)
+      updateFields[`followUps.${followUpIndex}.type`] = updateFollowUpDto.type;
+    if (updateFollowUpDto.subject)
+      updateFields[`followUps.${followUpIndex}.subject`] =
+        updateFollowUpDto.subject;
+    if (updateFollowUpDto.message)
+      updateFields[`followUps.${followUpIndex}.message`] =
+        updateFollowUpDto.message;
+    if (updateFollowUpDto.response)
+      updateFields[`followUps.${followUpIndex}.response`] =
+        updateFollowUpDto.response;
+
+    const updatedJob = await this.jobModel
+      .findByIdAndUpdate(jobId, { $set: updateFields }, { new: true })
+      .lean()
+      .exec();
+
+    return updatedJob.followUps[followUpIndex];
   }
 
   /**
@@ -853,65 +881,67 @@ export class JobService {
     followUpId: string,
     completeDto: CompleteJobFollowUpDto,
   ) {
-    await this.findJobById(authId, jobId);
+    const job = await this.findJobById(authId, jobId);
 
-    const followUp = await this.prisma.jobFollowUp.findUnique({
-      where: { id: followUpId },
-    });
+    const followUpIndex = job.followUps?.findIndex(
+      (f) => f._id?.toString() === followUpId,
+    );
 
-    if (!followUp || followUp.jobId !== jobId) {
+    if (followUpIndex === -1 || followUpIndex === undefined) {
       throw new NotFoundException('Follow-up not found');
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const completedFollowUp = await tx.jobFollowUp.update({
-        where: { id: followUpId },
-        data: {
-          status: completeDto.status || 'COMPLETED',
-          completedDate: new Date(),
-          response: completeDto.response,
-        },
-      });
+    const session = await this.connection.startSession();
+    session.startTransaction();
 
-      // Update job's follow-up tracking
-      const job = await tx.job.findUnique({ where: { id: jobId } });
+    try {
+      const updateFields = {
+        [`followUps.${followUpIndex}.status`]:
+          completeDto.status || FollowUpStatus.COMPLETED,
+        [`followUps.${followUpIndex}.completedDate`]: new Date(),
+        [`followUps.${followUpIndex}.response`]: completeDto.response,
+        followUpCount: (job.followUpCount || 0) + 1,
+        lastFollowUpDate: new Date(),
+      };
 
-      // Get next pending follow-up
-      const nextFollowUp = await tx.jobFollowUp.findFirst({
-        where: { jobId, status: 'PENDING' },
-        orderBy: { scheduledDate: 'asc' },
-      });
+      const updatedJob = await this.jobModel
+        .findByIdAndUpdate(
+          jobId,
+          { $set: updateFields },
+          { session, new: true },
+        )
+        .lean()
+        .exec();
 
-      await tx.job.update({
-        where: { id: jobId },
-        data: {
-          followUpCount: (job?.followUpCount || 0) + 1,
-          lastFollowUpDate: new Date(),
-          nextFollowUpDate: nextFollowUp?.scheduledDate || null,
-        },
-      });
-
-      return completedFollowUp;
-    });
+      await session.commitTransaction();
+      return updatedJob.followUps[followUpIndex];
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      await session.endSession();
+    }
   }
 
   /**
    * Delete a follow-up
    */
   async deleteFollowUp(authId: string, jobId: string, followUpId: string) {
-    await this.findJobById(authId, jobId);
+    const job = await this.findJobById(authId, jobId);
 
-    const followUp = await this.prisma.jobFollowUp.findUnique({
-      where: { id: followUpId },
-    });
+    const followUpExists = job.followUps?.some(
+      (f) => f._id?.toString() === followUpId,
+    );
 
-    if (!followUp || followUp.jobId !== jobId) {
+    if (!followUpExists) {
       throw new NotFoundException('Follow-up not found');
     }
 
-    await this.prisma.jobFollowUp.delete({
-      where: { id: followUpId },
-    });
+    await this.jobModel
+      .findByIdAndUpdate(jobId, {
+        $pull: { followUps: { _id: followUpId } },
+      })
+      .exec();
 
     return { message: 'Follow-up deleted successfully' };
   }
@@ -930,46 +960,60 @@ export class JobService {
   ) {
     await this.findJobById(authId, jobId);
 
-    const note = await this.prisma.$transaction(async (tx) => {
-      const newNote = await tx.jobNote.create({
-        data: {
-          jobId,
-          title: createNoteDto.title,
-          content: createNoteDto.content,
-          isPinned: createNoteDto.isPinned || false,
-          category: createNoteDto.category,
-        },
-      });
+    const session = await this.connection.startSession();
+    session.startTransaction();
 
-      // Create timeline event
-      await tx.jobTimelineEvent.create({
-        data: {
+    try {
+      const newNote = {
+        title: createNoteDto.title,
+        content: createNoteDto.content,
+        isPinned: createNoteDto.isPinned || false,
+        category: createNoteDto.category,
+        createdAt: new Date(),
+      };
+
+      const timelineEvent = {
+        eventType: JobTimelineEventType.NOTE_ADDED,
+        title: 'Note Added',
+        description: createNoteDto.title,
+        metadata: { category: createNoteDto.category },
+        createdAt: new Date(),
+      };
+
+      const updatedJob = await this.jobModel
+        .findByIdAndUpdate(
           jobId,
-          eventType: 'NOTE_ADDED',
-          title: 'Note Added',
-          description: createNoteDto.title,
-          metadata: {
-            noteId: newNote.id,
-            category: createNoteDto.category,
+          {
+            $push: {
+              notes: newNote,
+              timeline: timelineEvent,
+            },
           },
-        },
-      });
+          { session, new: true },
+        )
+        .lean()
+        .exec();
 
-      return newNote;
-    });
-
-    return note;
+      await session.commitTransaction();
+      return updatedJob.notes[updatedJob.notes.length - 1];
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      await session.endSession();
+    }
   }
 
   /**
    * Get all notes for a job
    */
   async getNotes(authId: string, jobId: string) {
-    await this.findJobById(authId, jobId);
-
-    return this.prisma.jobNote.findMany({
-      where: { jobId },
-      orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }],
+    const job = await this.findJobById(authId, jobId);
+    const notes = job.notes || [];
+    // Sort by isPinned (desc) then createdAt (desc)
+    return notes.sort((a, b) => {
+      if (a.isPinned !== b.isPinned) return b.isPinned ? 1 : -1;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
   }
 
@@ -982,64 +1026,75 @@ export class JobService {
     noteId: string,
     updateNoteDto: UpdateJobNoteDto,
   ) {
-    await this.findJobById(authId, jobId);
+    const job = await this.findJobById(authId, jobId);
 
-    const note = await this.prisma.jobNote.findUnique({
-      where: { id: noteId },
-    });
+    const noteIndex = job.notes?.findIndex((n) => n._id?.toString() === noteId);
 
-    if (!note || note.jobId !== jobId) {
+    if (noteIndex === -1 || noteIndex === undefined) {
       throw new NotFoundException('Note not found');
     }
 
-    return this.prisma.jobNote.update({
-      where: { id: noteId },
-      data: {
-        title: updateNoteDto.title,
-        content: updateNoteDto.content,
-        isPinned: updateNoteDto.isPinned,
-        category: updateNoteDto.category,
-      },
-    });
+    const updateFields: any = {};
+    if (updateNoteDto.title)
+      updateFields[`notes.${noteIndex}.title`] = updateNoteDto.title;
+    if (updateNoteDto.content)
+      updateFields[`notes.${noteIndex}.content`] = updateNoteDto.content;
+    if (updateNoteDto.isPinned !== undefined)
+      updateFields[`notes.${noteIndex}.isPinned`] = updateNoteDto.isPinned;
+    if (updateNoteDto.category)
+      updateFields[`notes.${noteIndex}.category`] = updateNoteDto.category;
+
+    const updatedJob = await this.jobModel
+      .findByIdAndUpdate(jobId, { $set: updateFields }, { new: true })
+      .lean()
+      .exec();
+
+    return updatedJob.notes[noteIndex];
   }
 
   /**
    * Toggle pin status of a note
    */
   async togglePinNote(authId: string, jobId: string, noteId: string) {
-    await this.findJobById(authId, jobId);
+    const job = await this.findJobById(authId, jobId);
 
-    const note = await this.prisma.jobNote.findUnique({
-      where: { id: noteId },
-    });
+    const noteIndex = job.notes?.findIndex((n) => n._id?.toString() === noteId);
 
-    if (!note || note.jobId !== jobId) {
+    if (noteIndex === -1 || noteIndex === undefined) {
       throw new NotFoundException('Note not found');
     }
 
-    return this.prisma.jobNote.update({
-      where: { id: noteId },
-      data: { isPinned: !note.isPinned },
-    });
+    const currentPinStatus = job.notes[noteIndex].isPinned;
+
+    const updatedJob = await this.jobModel
+      .findByIdAndUpdate(
+        jobId,
+        { $set: { [`notes.${noteIndex}.isPinned`]: !currentPinStatus } },
+        { new: true },
+      )
+      .lean()
+      .exec();
+
+    return updatedJob.notes[noteIndex];
   }
 
   /**
    * Delete a note
    */
   async deleteNote(authId: string, jobId: string, noteId: string) {
-    await this.findJobById(authId, jobId);
+    const job = await this.findJobById(authId, jobId);
 
-    const note = await this.prisma.jobNote.findUnique({
-      where: { id: noteId },
-    });
+    const noteExists = job.notes?.some((n) => n._id?.toString() === noteId);
 
-    if (!note || note.jobId !== jobId) {
+    if (!noteExists) {
       throw new NotFoundException('Note not found');
     }
 
-    await this.prisma.jobNote.delete({
-      where: { id: noteId },
-    });
+    await this.jobModel
+      .findByIdAndUpdate(jobId, {
+        $pull: { notes: { _id: noteId } },
+      })
+      .exec();
 
     return { message: 'Note deleted successfully' };
   }
@@ -1052,12 +1107,13 @@ export class JobService {
    * Get timeline for a job
    */
   async getTimeline(authId: string, jobId: string) {
-    await this.findJobById(authId, jobId);
-
-    return this.prisma.jobTimelineEvent.findMany({
-      where: { jobId },
-      orderBy: { createdAt: 'desc' },
-    });
+    const job = await this.findJobById(authId, jobId);
+    const timeline = job.timeline || [];
+    // Sort by createdAt descending
+    return timeline.sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
   }
 
   /**
@@ -1072,15 +1128,24 @@ export class JobService {
   ) {
     await this.findJobById(authId, jobId);
 
-    return this.prisma.jobTimelineEvent.create({
-      data: {
+    const timelineEvent = {
+      eventType: JobTimelineEventType.OTHER,
+      title,
+      description,
+      metadata,
+      createdAt: new Date(),
+    };
+
+    const updatedJob = await this.jobModel
+      .findByIdAndUpdate(
         jobId,
-        eventType: 'CUSTOM',
-        title,
-        description,
-        metadata: metadata as Prisma.InputJsonValue | undefined,
-      },
-    });
+        { $push: { timeline: timelineEvent } },
+        { new: true },
+      )
+      .lean()
+      .exec();
+
+    return updatedJob.timeline[updatedJob.timeline.length - 1];
   }
 
   // ================================
@@ -1091,6 +1156,10 @@ export class JobService {
    * Get job statistics for a user
    */
   async getStatistics(authId: string) {
+    const baseQuery = { authId, deletedAt: null };
+    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const oneMonthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
     const [
       totalJobs,
       byStatus,
@@ -1105,127 +1174,99 @@ export class JobService {
       salaryStats,
     ] = await Promise.all([
       // Total jobs
-      this.prisma.job.count({
-        where: { authId, deletedAt: null },
-      }),
+      this.jobModel.countDocuments(baseQuery),
 
-      // By status
-      this.prisma.job.groupBy({
-        by: ['status'],
-        where: { authId, deletedAt: null },
-        _count: true,
-      }),
+      // By status - using aggregation
+      this.jobModel.aggregate([
+        { $match: baseQuery },
+        { $group: { _id: '$status', count: { $sum: 1 } } },
+      ]),
 
       // By response status
-      this.prisma.job.groupBy({
-        by: ['responseStatus'],
-        where: { authId, deletedAt: null },
-        _count: true,
-      }),
+      this.jobModel.aggregate([
+        { $match: baseQuery },
+        { $group: { _id: '$responseStatus', count: { $sum: 1 } } },
+      ]),
 
       // By location type
-      this.prisma.job.groupBy({
-        by: ['locationType'],
-        where: { authId, deletedAt: null },
-        _count: true,
-      }),
+      this.jobModel.aggregate([
+        { $match: baseQuery },
+        { $group: { _id: '$locationType', count: { $sum: 1 } } },
+      ]),
 
       // By priority
-      this.prisma.job.groupBy({
-        by: ['priority'],
-        where: { authId, deletedAt: null },
-        _count: true,
-      }),
+      this.jobModel.aggregate([
+        { $match: baseQuery },
+        { $group: { _id: '$priority', count: { $sum: 1 } } },
+      ]),
 
       // By applied via
-      this.prisma.job.groupBy({
-        by: ['appliedVia'],
-        where: { authId, deletedAt: null },
-        _count: true,
-      }),
+      this.jobModel.aggregate([
+        { $match: baseQuery },
+        { $group: { _id: '$appliedVia', count: { $sum: 1 } } },
+      ]),
 
       // Applications this week
-      this.prisma.job.count({
-        where: {
-          authId,
-          deletedAt: null,
-          appliedDate: {
-            gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-          },
-        },
+      this.jobModel.countDocuments({
+        ...baseQuery,
+        appliedDate: { $gte: oneWeekAgo },
       }),
 
       // Applications this month
-      this.prisma.job.count({
-        where: {
-          authId,
-          deletedAt: null,
-          appliedDate: {
-            gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-          },
-        },
+      this.jobModel.countDocuments({
+        ...baseQuery,
+        appliedDate: { $gte: oneMonthAgo },
       }),
 
       // Responses this week
-      this.prisma.job.count({
-        where: {
-          authId,
-          deletedAt: null,
-          responseStatus: 'RESPONSE_RECEIVED',
-          responseDate: {
-            gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-          },
-        },
+      this.jobModel.countDocuments({
+        ...baseQuery,
+        responseStatus: ResponseStatus.RESPONSE_RECEIVED,
+        responseDate: { $gte: oneWeekAgo },
       }),
 
       // Interviews scheduled
-      this.prisma.job.count({
-        where: {
-          authId,
-          deletedAt: null,
-          interviewScheduled: true,
-          interviewDate: {
-            gte: new Date(),
-          },
-        },
+      this.jobModel.countDocuments({
+        ...baseQuery,
+        interviewScheduled: true,
+        interviewDate: { $gte: new Date() },
       }),
 
       // Salary statistics
-      this.prisma.job.aggregate({
-        where: {
-          authId,
-          deletedAt: null,
-          salaryMin: { not: null },
+      this.jobModel.aggregate([
+        { $match: { ...baseQuery, salaryMin: { $ne: null } } },
+        {
+          $group: {
+            _id: null,
+            avgSalaryMin: { $avg: '$salaryMin' },
+            avgSalaryMax: { $avg: '$salaryMax' },
+          },
         },
-        _avg: {
-          salaryMin: true,
-          salaryMax: true,
-        },
-      }),
+      ]),
     ]);
+
+    // Transform aggregation results to match expected format
+    const statusMap = Object.fromEntries(byStatus.map((s) => [s._id, s.count]));
+    const responseStatusMap = Object.fromEntries(
+      byResponseStatus.map((s) => [s._id, s.count]),
+    );
 
     // Calculate rates
     const responsesReceived =
-      byResponseStatus.find((s) => s.responseStatus === 'RESPONSE_RECEIVED')
-        ?._count || 0;
-    const interviews =
-      byStatus.find((s) => s.status === 'INTERVIEW')?._count || 0;
-    const offers = byStatus.find((s) => s.status === 'OFFER')?._count || 0;
+      responseStatusMap[ResponseStatus.RESPONSE_RECEIVED] || 0;
+    const interviews = statusMap[JobStatus.INTERVIEW_SCHEDULED] || 0;
+    const offers = statusMap[JobStatus.OFFER_RECEIVED] || 0;
 
     return {
       totalJobs,
-      byStatus: Object.fromEntries(byStatus.map((s) => [s.status, s._count])),
-      byResponseStatus: Object.fromEntries(
-        byResponseStatus.map((s) => [s.responseStatus, s._count]),
-      ),
+      byStatus: statusMap,
+      byResponseStatus: responseStatusMap,
       byLocationType: Object.fromEntries(
-        byLocationType.map((s) => [s.locationType, s._count]),
+        byLocationType.map((s) => [s._id, s.count]),
       ),
-      byPriority: Object.fromEntries(
-        byPriority.map((s) => [s.priority, s._count]),
-      ),
+      byPriority: Object.fromEntries(byPriority.map((s) => [s._id, s.count])),
       byAppliedVia: Object.fromEntries(
-        byAppliedVia.map((s) => [s.appliedVia, s._count]),
+        byAppliedVia.map((s) => [s._id, s.count]),
       ),
       responseRate: totalJobs > 0 ? (responsesReceived / totalJobs) * 100 : 0,
       interviewRate: totalJobs > 0 ? (interviews / totalJobs) * 100 : 0,
@@ -1234,8 +1275,8 @@ export class JobService {
       applicationsThisMonth,
       responsesThisWeek,
       interviewsScheduled,
-      averageSalaryMin: salaryStats._avg.salaryMin,
-      averageSalaryMax: salaryStats._avg.salaryMax,
+      averageSalaryMin: salaryStats[0]?.avgSalaryMin || null,
+      averageSalaryMax: salaryStats[0]?.avgSalaryMax || null,
     };
   }
 
@@ -1245,16 +1286,16 @@ export class JobService {
 
   private mapStatusToTimelineEvent(status: JobStatus): JobTimelineEventType {
     const statusMap: Record<JobStatus, JobTimelineEventType> = {
-      APPLIED: 'APPLIED',
-      SCREENING: 'STATUS_CHANGED',
-      INTERVIEW: 'INTERVIEW_SCHEDULED',
-      OFFER: 'OFFER_RECEIVED',
-      REJECTED: 'REJECTED',
-      ACCEPTED: 'OFFER_ACCEPTED',
-      DECLINED: 'OFFER_DECLINED',
-      WITHDRAWN: 'WITHDRAWN',
+      [JobStatus.APPLIED]: JobTimelineEventType.APPLIED,
+      [JobStatus.INTERVIEW_SCHEDULED]: JobTimelineEventType.INTERVIEW,
+      [JobStatus.INTERVIEW_COMPLETED]: JobTimelineEventType.INTERVIEW,
+      [JobStatus.OFFER_RECEIVED]: JobTimelineEventType.OFFER,
+      [JobStatus.ACCEPTED]: JobTimelineEventType.ACCEPTED,
+      [JobStatus.REJECTED]: JobTimelineEventType.REJECTION,
+      [JobStatus.WITHDRAWN]: JobTimelineEventType.WITHDRAWAL,
+      [JobStatus.NO_RESPONSE]: JobTimelineEventType.OTHER,
     };
 
-    return statusMap[status] || 'STATUS_CHANGED';
+    return statusMap[status] || JobTimelineEventType.OTHER;
   }
 }
