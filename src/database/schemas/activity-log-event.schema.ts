@@ -1,4 +1,4 @@
-import { Schema, Prop, SchemaFactory, SubDocumentPath } from '@nestjs/mongoose';
+import { Schema, Prop, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 
 @Schema({ _id: false })

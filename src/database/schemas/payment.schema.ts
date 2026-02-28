@@ -12,7 +12,17 @@ export class Payment extends Document {
   @Prop()
   currency: string;
 
-  @Prop({ enum: ['PENDING', 'PROCESSING', 'SUCCEEDED', 'FAILED', 'CANCELED', 'REFUNDED'], default: 'PENDING' })
+  @Prop({
+    enum: [
+      'PENDING',
+      'PROCESSING',
+      'SUCCEEDED',
+      'FAILED',
+      'CANCELED',
+      'REFUNDED',
+    ],
+    default: 'PENDING',
+  })
   status: string;
 
   @Prop()

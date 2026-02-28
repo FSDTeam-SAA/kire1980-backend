@@ -31,7 +31,7 @@ import {
   imports: [
     MongooseModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => {
+      useFactory: (configService: ConfigService) => {
         const mongoUri = configService.get<string>('DATABASE_URL');
         return {
           uri: mongoUri,
