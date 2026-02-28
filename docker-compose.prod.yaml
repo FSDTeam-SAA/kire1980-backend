@@ -1,0 +1,33 @@
+services:
+
+  
+  backend:
+    container_name: simple_blog_backend
+    image: thepujon/simple_blog_backend:latest
+    # build:
+    #   context: ./
+    #   dockerfile: Dockerfile  
+    ports:
+      - "5000:5000"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_db:5432/${POSTGRES_DB}
+      DATABASE_HOST: postgres_db
+      DATABASE_PORT: 5432
+      DATABASE_USER: ${POSTGRES_USER}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      DATABASE_NAME: ${POSTGRES_DB}
+      NODE_ENV: ${NODE_ENV}
+
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_USER: ${REDIS_USER}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: 1000
+    depends_on:
+      - postgres_db
+      - pg_admin
+      - redis
+    networks:
+      - blog_network
