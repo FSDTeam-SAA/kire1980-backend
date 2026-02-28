@@ -1,9 +1,11 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
 import { Job } from 'bullmq';
+import { Model } from 'mongoose';
 import { EmailJob } from './email.queue';
-import { EmailService } from 'src/common/services/email.service';
-import { PrismaService } from 'src/common/services/prisma.service';
+import { EmailService } from '../../services/email.service';
+import { EmailHistory } from '../../../database/schemas';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { Logger } from 'winston';
 
@@ -12,8 +14,9 @@ export class EmailProcessor extends WorkerHost {
   constructor(
     @Inject(WINSTON_MODULE_PROVIDER)
     private readonly logger: Logger,
+    @InjectModel(EmailHistory.name)
+    private readonly emailHistoryModel: Model<EmailHistory>,
     private readonly emailService: EmailService,
-    private readonly prismaService: PrismaService,
   ) {
     super();
   }
@@ -63,16 +66,16 @@ export class EmailProcessor extends WorkerHost {
       );
 
       // Update email history status to 'sent'
-      await this.prismaService.emailHistory.updateMany({
-        where: {
+      await this.emailHistoryModel.updateMany(
+        {
           authId,
           emailType: 'verification',
           emailStatus: 'pending',
         },
-        data: {
+        {
           emailStatus: 'sent',
         },
-      });
+      );
 
       this.logger.info(`Verification email sent successfully to ${email}`, {
         context: 'EmailProcessor',
@@ -87,18 +90,18 @@ export class EmailProcessor extends WorkerHost {
         stack: error instanceof Error ? error.stack : undefined,
       });
       // Update email history status to 'failed'
-      await this.prismaService.emailHistory.updateMany({
-        where: {
+      await this.emailHistoryModel.updateMany(
+        {
           authId,
           emailType: 'verification',
           emailStatus: 'pending',
         },
-        data: {
+        {
           emailStatus: 'failed',
           errorMessage:
             error instanceof Error ? error.message : 'Failed to send email',
         },
-      });
+      );
 
       throw error; // Re-throw to trigger retry
     }

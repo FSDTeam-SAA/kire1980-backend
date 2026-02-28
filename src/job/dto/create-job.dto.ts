@@ -23,7 +23,7 @@ import {
   InterviewType,
   JobPriority,
   JobSourceType,
-} from '@prisma/client';
+} from '../enums';
 
 export class CreateJobDto {
   // ================================

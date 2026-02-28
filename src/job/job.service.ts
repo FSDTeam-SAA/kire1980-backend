@@ -1,10 +1,7 @@
-import {
-  Injectable,
-  NotFoundException,
-  ForbiddenException,
-} from '@nestjs/common';
-import { Prisma, JobStatus, JobTimelineEventType } from '@prisma/client';
-import { PrismaService } from '../common/services/prisma.service';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model, Connection, ClientSession } from 'mongoose';
+import { Job as JobDocument } from '../database/schemas';
 import {
   ActivityLogService,
   ActivityLogMetadata,
@@ -20,13 +17,20 @@ import {
   CreateJobNoteDto,
   UpdateJobNoteDto,
 } from './dto';
+import {
+  JobStatus,
+  ResponseStatus,
+  JobTimelineEventType,
+  FollowUpStatus,
+} from './enums';
 
 @Injectable()
 export class JobService {
   constructor(
-    private readonly prisma: PrismaService,
+    @InjectModel(JobDocument.name) private jobModel: Model<JobDocument>,
     private readonly activityLogService: ActivityLogService,
     private readonly customLogger: CustomLoggerService,
+    private readonly connection: Connection,
   ) {}
 
   // ================================
@@ -46,116 +50,125 @@ export class JobService {
       'JobService',
     );
 
-    const job = await this.prisma.$transaction(async (tx) => {
-      // Create the job
-      const newJob = await tx.job.create({
-        data: {
-          authId,
-          company: createJobDto.company,
-          companyUrl: createJobDto.companyUrl,
-          companyLinkedin: createJobDto.companyLinkedin,
-          companyFacebook: createJobDto.companyFacebook,
-          companyTwitter: createJobDto.companyTwitter,
-          companyLogo: createJobDto.companyLogo,
-          role: createJobDto.role,
-          location: createJobDto.location,
-          locationType: createJobDto.locationType,
-          salaryDisplay: createJobDto.salaryDisplay,
-          salaryMin: createJobDto.salaryMin,
-          salaryMax: createJobDto.salaryMax,
-          salaryCurrency: createJobDto.salaryCurrency || 'USD',
-          contactPerson: createJobDto.contactPerson,
-          contactEmail: createJobDto.contactEmail,
-          contactPhone: createJobDto.contactPhone,
-          appliedDate: new Date(createJobDto.appliedDate),
-          appliedVia: createJobDto.appliedVia,
-          jobPostingUrl: createJobDto.jobPostingUrl,
-          status: createJobDto.status || 'APPLIED',
-          responseStatus: createJobDto.responseStatus || 'NO_RESPONSE',
-          responseDate: createJobDto.responseDate
-            ? new Date(createJobDto.responseDate)
-            : null,
-          techStack: createJobDto.techStack || [],
-          jobDescription: createJobDto.jobDescription,
-          requirements: createJobDto.requirements,
-          responsibilities: createJobDto.responsibilities,
-          benefits: createJobDto.benefits,
-          interviewScheduled: createJobDto.interviewScheduled || false,
-          interviewDate: createJobDto.interviewDate
-            ? new Date(createJobDto.interviewDate)
-            : null,
-          interviewType: createJobDto.interviewType,
-          interviewRound: createJobDto.interviewRound,
-          interviewLocation: createJobDto.interviewLocation,
-          interviewNotes: createJobDto.interviewNotes,
-          priority: createJobDto.priority || 'MEDIUM',
-          tags: createJobDto.tags || [],
-          isFavorite: createJobDto.isFavorite || false,
-          isArchived: createJobDto.isArchived || false,
-          offerAmount: createJobDto.offerAmount,
-          offerDate: createJobDto.offerDate
-            ? new Date(createJobDto.offerDate)
-            : null,
-          offerDeadline: createJobDto.offerDeadline
-            ? new Date(createJobDto.offerDeadline)
-            : null,
-          offerNotes: createJobDto.offerNotes,
-          rejectionReason: createJobDto.rejectionReason,
-          rejectionDate: createJobDto.rejectionDate
-            ? new Date(createJobDto.rejectionDate)
-            : null,
-          notes: createJobDto.notes,
-          aiParsedData: createJobDto.aiParsedData as
-            | Prisma.InputJsonValue
-            | undefined,
-          aiConfidenceScore: createJobDto.aiConfidenceScore,
-          sourceType: createJobDto.sourceType || 'MANUAL',
-          rawJobPosting: createJobDto.rawJobPosting,
-          nextFollowUpDate: createJobDto.nextFollowUpDate
-            ? new Date(createJobDto.nextFollowUpDate)
-            : null,
-        },
-      });
+    const session = await this.connection.startSession();
+    session.startTransaction();
 
-      // Create initial timeline event
-      await tx.jobTimelineEvent.create({
-        data: {
-          jobId: newJob.id,
-          eventType: 'APPLIED',
-          title: 'Application Submitted',
-          description: `Applied to ${createJobDto.company} for ${createJobDto.role} position via ${createJobDto.appliedVia}`,
-          metadata: {
-            appliedVia: createJobDto.appliedVia,
+    try {
+      // Create the job
+      const newJob = await this.jobModel.create(
+        [
+          {
+            authId,
+            company: createJobDto.company,
+            companyUrl: createJobDto.companyUrl,
+            companyLinkedin: createJobDto.companyLinkedin,
+            companyFacebook: createJobDto.companyFacebook,
+            companyTwitter: createJobDto.companyTwitter,
+            companyLogo: createJobDto.companyLogo,
+            role: createJobDto.role,
             location: createJobDto.location,
             locationType: createJobDto.locationType,
+            salaryDisplay: createJobDto.salaryDisplay,
+            salaryMin: createJobDto.salaryMin,
+            salaryMax: createJobDto.salaryMax,
+            salaryCurrency: createJobDto.salaryCurrency || 'USD',
+            contactPerson: createJobDto.contactPerson,
+            contactEmail: createJobDto.contactEmail,
+            contactPhone: createJobDto.contactPhone,
+            appliedDate: new Date(createJobDto.appliedDate),
+            appliedVia: createJobDto.appliedVia,
+            jobPostingUrl: createJobDto.jobPostingUrl,
+            status: createJobDto.status || 'APPLIED',
+            responseStatus: createJobDto.responseStatus || 'NO_RESPONSE',
+            responseDate: createJobDto.responseDate
+              ? new Date(createJobDto.responseDate)
+              : null,
+            techStack: createJobDto.techStack || [],
+            jobDescription: createJobDto.jobDescription,
+            requirements: createJobDto.requirements,
+            responsibilities: createJobDto.responsibilities,
+            benefits: createJobDto.benefits,
+            interviewScheduled: createJobDto.interviewScheduled || false,
+            interviewDate: createJobDto.interviewDate
+              ? new Date(createJobDto.interviewDate)
+              : null,
+            interviewType: createJobDto.interviewType,
+            interviewRound: createJobDto.interviewRound,
+            interviewLocation: createJobDto.interviewLocation,
+            interviewNotes: createJobDto.interviewNotes,
+            priority: createJobDto.priority || 'MEDIUM',
+            tags: createJobDto.tags || [],
+            isFavorite: createJobDto.isFavorite || false,
+            isArchived: createJobDto.isArchived || false,
+            offerAmount: createJobDto.offerAmount,
+            offerDate: createJobDto.offerDate
+              ? new Date(createJobDto.offerDate)
+              : null,
+            offerDeadline: createJobDto.offerDeadline
+              ? new Date(createJobDto.offerDeadline)
+              : null,
+            offerNotes: createJobDto.offerNotes,
+            rejectionReason: createJobDto.rejectionReason,
+            rejectionDate: createJobDto.rejectionDate
+              ? new Date(createJobDto.rejectionDate)
+              : null,
+            notes: createJobDto.notes,
+            aiParsedData: createJobDto.aiParsedData,
+            aiConfidenceScore: createJobDto.aiConfidenceScore,
+            sourceType: createJobDto.sourceType || 'MANUAL',
+            rawJobPosting: createJobDto.rawJobPosting,
+            nextFollowUpDate: createJobDto.nextFollowUpDate
+              ? new Date(createJobDto.nextFollowUpDate)
+              : null,
+            timeline: [
+              {
+                eventType: 'APPLIED',
+                title: 'Application Submitted',
+                description: `Applied to ${createJobDto.company} for ${createJobDto.role} position via ${createJobDto.appliedVia}`,
+                metadata: {
+                  appliedVia: createJobDto.appliedVia,
+                  location: createJobDto.location,
+                  locationType: createJobDto.locationType,
+                },
+              },
+            ],
           },
-        },
-      });
+        ],
+        { session },
+      );
+
+      const jobId = newJob[0]._id.toString();
+      const jobData = newJob[0].toObject();
 
       // Log activity
       await this.activityLogService.logCreate(
         'Job',
-        newJob.id,
+        jobId,
         {
-          company: newJob.company,
-          role: newJob.role,
-          location: newJob.location,
-          status: newJob.status,
-          appliedVia: newJob.appliedVia,
+          company: jobData.company,
+          role: jobData.role,
+          location: jobData.location,
+          status: jobData.status,
+          appliedVia: jobData.appliedVia,
         },
         { ...meta, actionedBy: authId },
-        tx,
+        session,
       );
 
-      return newJob;
-    });
+      await session.commitTransaction();
 
-    this.customLogger.log(
-      `Job application created successfully: ${job.id}`,
-      'JobService',
-    );
+      this.customLogger.log(
+        `Job application created successfully: ${jobId}`,
+        'JobService',
+      );
 
-    return job;
+      return newJob[0];
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      await session.endSession();
+    }
   }
 
   /**
@@ -188,106 +201,106 @@ export class JobService {
       sortOrder = 'desc',
     } = filterDto;
 
-    // Build where clause
-    const where: Prisma.JobWhereInput = {
+    // Build MongoDB query
+    const query: any = {
       authId,
       deletedAt: null, // Exclude soft-deleted jobs
     };
 
     // Search across multiple fields
     if (search) {
-      where.OR = [
-        { company: { contains: search, mode: 'insensitive' } },
-        { role: { contains: search, mode: 'insensitive' } },
-        { location: { contains: search, mode: 'insensitive' } },
-        { techStack: { hasSome: [search] } },
-        { tags: { hasSome: [search] } },
+      query.$or = [
+        { company: { $regex: search, $options: 'i' } },
+        { role: { $regex: search, $options: 'i' } },
+        { location: { $regex: search, $options: 'i' } },
+        { techStack: { $elemMatch: { $in: [search] } } },
+        { tags: { $elemMatch: { $in: [search] } } },
       ];
     }
 
     // Status filters
     if (status && status.length > 0) {
-      where.status = { in: status };
+      query.status = { $in: status };
     }
 
     if (responseStatus && responseStatus.length > 0) {
-      where.responseStatus = { in: responseStatus };
+      query.responseStatus = { $in: responseStatus };
     }
 
     if (priority && priority.length > 0) {
-      where.priority = { in: priority };
+      query.priority = { $in: priority };
     }
 
     if (locationType && locationType.length > 0) {
-      where.locationType = { in: locationType };
+      query.locationType = { $in: locationType };
     }
 
     if (location) {
-      where.location = { contains: location, mode: 'insensitive' };
+      query.location = { $regex: location, $options: 'i' };
     }
 
     if (appliedVia && appliedVia.length > 0) {
-      where.appliedVia = { in: appliedVia };
+      query.appliedVia = { $in: appliedVia };
     }
 
     // Date filters
     if (appliedDateFrom || appliedDateTo) {
-      where.appliedDate = {};
+      query.appliedDate = {};
       if (appliedDateFrom) {
-        where.appliedDate.gte = new Date(appliedDateFrom);
+        query.appliedDate.$gte = new Date(appliedDateFrom);
       }
       if (appliedDateTo) {
-        where.appliedDate.lte = new Date(appliedDateTo);
+        query.appliedDate.$lte = new Date(appliedDateTo);
       }
     }
 
     if (responseDateFrom || responseDateTo) {
-      where.responseDate = {};
+      query.responseDate = {};
       if (responseDateFrom) {
-        where.responseDate.gte = new Date(responseDateFrom);
+        query.responseDate.$gte = new Date(responseDateFrom);
       }
       if (responseDateTo) {
-        where.responseDate.lte = new Date(responseDateTo);
+        query.responseDate.$lte = new Date(responseDateTo);
       }
     }
 
     // Salary filters
     if (salaryMinFrom !== undefined) {
-      where.salaryMin = { gte: salaryMinFrom };
+      query.salaryMin = { $gte: salaryMinFrom };
     }
 
     if (salaryMaxTo !== undefined) {
-      where.salaryMax = { lte: salaryMaxTo };
+      query.salaryMax = { $lte: salaryMaxTo };
     }
 
     // Boolean filters
     if (isFavorite !== undefined) {
-      where.isFavorite = isFavorite;
+      query.isFavorite = isFavorite;
     }
 
     if (isArchived !== undefined) {
-      where.isArchived = isArchived;
+      query.isArchived = isArchived;
     }
 
     if (interviewScheduled !== undefined) {
-      where.interviewScheduled = interviewScheduled;
+      query.interviewScheduled = interviewScheduled;
     }
 
     // Array filters
     if (tags && tags.length > 0) {
-      where.tags = { hasSome: tags };
+      query.tags = { $in: tags };
     }
 
     if (techStack && techStack.length > 0) {
-      where.techStack = { hasSome: techStack };
+      query.techStack = { $in: techStack };
     }
 
     if (company) {
-      where.company = { contains: company, mode: 'insensitive' };
+      query.company = { $regex: company, $options: 'i' };
     }
 
-    // Build orderBy
-    const orderBy: Prisma.JobOrderByWithRelationInput = {};
+    // Build sort
+    const sort: any = {};
     const validSortFields = [
       'appliedDate',
       'company',
@@ -302,20 +315,20 @@ export class JobService {
     ];
 
     if (validSortFields.includes(sortBy)) {
-      orderBy[sortBy] = sortOrder;
+      sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
     } else {
-      orderBy.appliedDate = 'desc';
+      sort.appliedDate = -1;
     }
 
     // Execute queries
     const [jobs, total] = await Promise.all([
-      this.prisma.job.findMany({
-        where,
-        orderBy,
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      this.prisma.job.count({ where }),
+      this.jobModel
+        .find(query)
+        .sort(sort)
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .exec(),
+      this.jobModel.countDocuments(query),
     ]);
 
     const totalPages = Math.ceil(total / limit);
@@ -337,32 +350,14 @@ export class JobService {
    * Get a single job by ID
    */
   async findJobById(authId: string, jobId: string, includeRelations = false) {
-    const job = await this.prisma.job.findUnique({
-      where: { id: jobId },
-      include: includeRelations
-        ? {
-            followUps: {
-              orderBy: { scheduledDate: 'desc' },
-            },
-            jobNotes: {
-              orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }],
-            },
-            timeline: {
-              orderBy: { createdAt: 'desc' },
-            },
-            documents: {
-              orderBy: { createdAt: 'desc' },
-            },
-          }
-        : undefined,
-    });
+    const job = await this.jobModel.findById(jobId).lean().exec();
 
     if (!job) {
       throw new NotFoundException('Job not found');
     }
 
-    if (job.authId !== authId) {
-      throw new ForbiddenException('You do not have access to this job');
+    if (job.authId.toString() !== authId) {
+      throw new NotFoundException('You do not have access to this job');
     }
 
     if (job.deletedAt) {
@@ -389,9 +384,12 @@ export class JobService {
       'JobService',
     );
 
-    const updatedJob = await this.prisma.$transaction(async (tx) => {
+    const session = await this.connection.startSession();
+    session.startTransaction();
+
+    try {
       // Prepare update data
-      const updateData: Prisma.JobUpdateInput = {};
+      const updateData: any = {};
 
       // Map all fields from DTO
       if (updateJobDto.company !== undefined)
@@ -477,8 +475,7 @@ export class JobService {
       if (updateJobDto.notes !== undefined)
         updateData.notes = updateJobDto.notes;
       if (updateJobDto.aiParsedData !== undefined)
-        updateData.aiParsedData =
-          updateJobDto.aiParsedData as Prisma.InputJsonValue;
+        updateData.aiParsedData = updateJobDto.aiParsedData;
       if (updateJobDto.aiConfidenceScore !== undefined)
         updateData.aiConfidenceScore = updateJobDto.aiConfidenceScore;
       if (updateJobDto.sourceType !== undefined)
@@ -499,22 +496,23 @@ export class JobService {
       ) {
         updateData.status = updateJobDto.status;
 
-        // Create timeline event for status change
-        const timelineEventType = this.mapStatusToTimelineEvent(
-          updateJobDto.status,
-        );
-        await tx.jobTimelineEvent.create({
-          data: {
-            jobId,
-            eventType: timelineEventType,
-            title: `Status changed to ${updateJobDto.status}`,
-            description: `Job status changed from ${existingJob.status} to ${updateJobDto.status}`,
-            metadata: {
-              previousStatus: existingJob.status,
-              newStatus: updateJobDto.status,
-            },
+        // Add timeline event for status change
+        const timelineEvent = {
+          eventType: this.mapStatusToTimelineEvent(updateJobDto.status),
+          title: `Status changed to ${updateJobDto.status}`,
+          description: `Job status changed from ${existingJob.status} to ${updateJobDto.status}`,
+          metadata: {
+            previousStatus: existingJob.status,
+            newStatus: updateJobDto.status,
           },
-        });
+          createdAt: new Date(),
+        };
+
+        await this.jobModel.findByIdAndUpdate(
+          jobId,
+          { $push: { timeline: timelineEvent } },
+          { session },
+        );
       }
 
       // Handle response status change with timeline event
@@ -524,15 +522,19 @@ export class JobService {
       ) {
         updateData.responseStatus = updateJobDto.responseStatus;
 
-        if (updateJobDto.responseStatus === 'RESPONSE_RECEIVED') {
-          await tx.jobTimelineEvent.create({
-            data: {
-              jobId,
-              eventType: 'RESPONSE_RECEIVED',
-              title: 'Response Received',
-              description: `Received a response from ${existingJob.company}`,
-            },
-          });
+        if (updateJobDto.responseStatus === ResponseStatus.RESPONSE_RECEIVED) {
+          const timelineEvent = {
+            eventType: JobTimelineEventType.RESPONSE_RECEIVED,
+            title: 'Response Received',
+            description: `Received a response from ${existingJob.company}`,
+            createdAt: new Date(),
+          };
+
+          await this.jobModel.findByIdAndUpdate(
+            jobId,
+            { $push: { timeline: timelineEvent } },
+            { session },
+          );
         }
       }
 
@@ -542,43 +544,57 @@ export class JobService {
         !existingJob.interviewScheduled &&
         updateJobDto.interviewDate
       ) {
-        await tx.jobTimelineEvent.create({
-          data: {
-            jobId,
-            eventType: 'INTERVIEW_SCHEDULED',
-            title: 'Interview Scheduled',
-            description: `Interview scheduled for ${new Date(updateJobDto.interviewDate).toLocaleDateString()}`,
-            metadata: {
-              interviewDate: updateJobDto.interviewDate,
-              interviewType: updateJobDto.interviewType,
-              interviewRound: updateJobDto.interviewRound,
-            },
+        const timelineEvent = {
+          eventType: JobTimelineEventType.INTERVIEW,
+          title: 'Interview Scheduled',
+          description: `Interview scheduled for ${new Date(updateJobDto.interviewDate).toLocaleDateString()}`,
+          metadata: {
+            interviewDate: updateJobDto.interviewDate,
+            interviewType: updateJobDto.interviewType,
+            interviewRound: updateJobDto.interviewRound,
           },
-        });
+          createdAt: new Date(),
+        };
+
+        await this.jobModel.findByIdAndUpdate(
+          jobId,
+          { $push: { timeline: timelineEvent } },
+          { session },
+        );
       }
 
       // Update the job
-      const job = await tx.job.update({
-        where: { id: jobId },
-        data: updateData,
-      });
+      const updatedJob = await this.jobModel
+        .findByIdAndUpdate(jobId, { $set: updateData }, { session, new: true })
+        .lean()
+        .exec();
 
       // Log activity
       await this.activityLogService.logUpdate(
         'Job',
         jobId,
         existingJob,
-        job,
+        updatedJob,
         { ...meta, actionedBy: authId },
-        tx,
+        session,
       );
 
-      return job;
-    });
+      await session.commitTransaction();
 
-    this.customLogger.log(`Job updated successfully: ${jobId}`, 'JobService');
+      this.customLogger.log(`Job updated successfully: ${jobId}`, 'JobService');
 
-    return updatedJob;
+      return updatedJob;
+    } catch (error) {
+      await session.abortTransaction();
+      this.customLogger.error(
+        `Failed to update job: ${jobId}`,
+        error.stack,
+        'JobService',
+      );
+      throw error;
+    } finally {
+      await session.endSession();
+    }
   }
 
   /**
@@ -592,39 +608,45 @@ export class JobService {
       'JobService',
     );
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.job.update({
-        where: { id: jobId },
-        data: { deletedAt: new Date() },
-      });
+    const session = await this.connection.startSession();
+    session.startTransaction();
+
+    try {
+      await this.jobModel.findByIdAndUpdate(
+        jobId,
+        { $set: { deletedAt: new Date() } },
+        { session },
+      );
 
       await this.activityLogService.logDelete(
         'Job',
         jobId,
         { company: existingJob.company, role: existingJob.role },
         { ...meta, actionedBy: authId },
-        tx,
+        session,
       );
-    });
 
-    return { message: 'Job deleted successfully' };
+      await session.commitTransaction();
+      return { message: 'Job deleted successfully' };
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      await session.endSession();
+    }
   }
 
   /**
    * Permanently delete a job (admin only or cleanup)
    */
   async hardDeleteJob(authId: string, jobId: string) {
-    const existingJob = await this.prisma.job.findUnique({
-      where: { id: jobId },
-    });
+    const existingJob = await this.jobModel.findById(jobId).lean().exec();
 
-    if (!existingJob || existingJob.authId !== authId) {
+    if (!existingJob || existingJob.authId.toString() !== authId) {
       throw new NotFoundException('Job not found');
     }
 
-    await this.prisma.job.delete({
-      where: { id: jobId },
-    });
+    await this.jobModel.findByIdAndDelete(jobId).exec();
 
     return { message: 'Job permanently deleted' };
   }

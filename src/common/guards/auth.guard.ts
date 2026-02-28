@@ -8,7 +8,9 @@ import type { Request } from 'express';
 import * as jwt from 'jsonwebtoken';
 import config from '../config/app.config';
 import { RedisService } from '../services/redis.service';
-import { PrismaService } from '../services/prisma.service';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { AuthUser } from '../../database/schemas';
 
 interface IAccessTokenPayload {
   userId: string;
@@ -20,7 +22,7 @@ interface IAccessTokenPayload {
 export class AuthGuard implements CanActivate {
   constructor(
     private readonly redisService: RedisService,
-    private readonly prismaService: PrismaService,
+    @InjectModel(AuthUser.name) private authUserModel: Model<AuthUser>,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -79,10 +81,11 @@ export class AuthGuard implements CanActivate {
     }
 
     // Fallback to DB (slow path - only on cache miss)
-    const user = await this.prismaService.authUser.findUnique({
-      where: { id: userId },
-      select: { tokenVersion: true, status: true },
-    });
+    const user = await this.authUserModel
+      .findById(userId)
+      .select('tokenVersion status')
+      .lean()
+      .exec();
 
     if (!user) {
       throw new UnauthorizedException('User not found');

@@ -10,7 +10,7 @@ import {
   FollowUpType,
   JobDocumentType,
   JobTimelineEventType,
-} from '@prisma/client';
+} from '../enums';
 
 // ================================
 // Job Response DTO

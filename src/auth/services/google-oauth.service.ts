@@ -1,12 +1,19 @@
 import { Injectable } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model, Connection } from 'mongoose';
 import crypto from 'crypto';
 import * as jwt from 'jsonwebtoken';
 import { JwksClient } from 'jwks-rsa';
 import { CustomLoggerService } from '../../common/services/custom-logger.service';
 import { RedisService } from '../../common/services/redis.service';
-import { PrismaService } from '../../common/services/prisma.service';
 import { ActivityLogService } from '../../common/services/activity-log.service';
 import { AuthUtilsService } from './auth-utils.service';
+import {
+  AuthUser,
+  AuthSecurity,
+  UserProfile,
+  LoginHistory,
+} from '../../database/schemas';
 import {
   GOOGLE_OAUTH_CONFIG,
   getGoogleOAuthCredentials,
@@ -35,11 +42,17 @@ export class GoogleOAuthService {
   private readonly jwksClient: JwksClient;
 
   constructor(
+    @InjectModel(AuthUser.name) private authUserModel: Model<AuthUser>,
+    @InjectModel(AuthSecurity.name)
+    private authSecurityModel: Model<AuthSecurity>,
+    @InjectModel(UserProfile.name) private userProfileModel: Model<UserProfile>,
+    @InjectModel(LoginHistory.name)
+    private loginHistoryModel: Model<LoginHistory>,
     private readonly customLogger: CustomLoggerService,
     private readonly redisService: RedisService,
-    private readonly prismaService: PrismaService,
     private readonly activityLogService: ActivityLogService,
     private readonly authUtilsService: AuthUtilsService,
+    private readonly connection: Connection,
   ) {
     // Initialize JWKS client for Google public key retrieval
     // Keys are cached and automatically rotated
@@ -404,32 +417,18 @@ export class GoogleOAuthService {
     const { ip, userAgent, device } = meta;
 
     // Check if user exists by provider ID (Google's sub)
-    let user = await this.prismaService.authUser.findFirst({
-      where: {
-        provider: 'google',
-        providerId: googleUser.sub,
-      },
-      select: {
-        id: true,
-        email: true,
-        username: true,
-        role: true,
-        verified: true,
-        status: true,
-        provider: true,
-        providerId: true,
-        tokenVersion: true,
-      },
+    let user = await this.authUserModel.findOne({
+      provider: 'google',
+      providerId: googleUser.sub,
     });
 
     let isNewUser = false;
 
     if (!user) {
       // Check if user exists with same email but different provider
-      const existingUserWithEmail =
-        await this.prismaService.authUser.findUnique({
-          where: { email: googleUser.email },
-        });
+      const existingUserWithEmail = await this.authUserModel.findOne({
+        email: googleUser.email,
+      });
 
       if (existingUserWithEmail) {
         // Link Google account to existing user
@@ -451,56 +450,59 @@ export class GoogleOAuthService {
       // Create new user
       const username = this.generateUsername(googleUser);
 
-      user = await this.prismaService.$transaction(async (tx) => {
+      const session = await this.connection.startSession();
+      session.startTransaction();
+
+      try {
         // Create auth user
-        const newUser = await tx.authUser.create({
-          data: {
-            email: googleUser.email,
-            username,
-            password: '', // OAuth users don't have a password
-            role: 'USER',
-            verified: true, // Google verified the email
-            status: 'ACTIVE',
-            provider: 'google',
-            providerId: googleUser.sub,
-          },
-          select: {
-            id: true,
-            email: true,
-            username: true,
-            role: true,
-            verified: true,
-            status: true,
-            provider: true,
-            providerId: true,
-            tokenVersion: true,
-          },
-        });
+        const newUser = await this.authUserModel.create(
+          [
+            {
+              email: googleUser.email,
+              username,
+              password: '', // OAuth users don't have a password
+              role: 'USER',
+              verified: true, // Google verified the email
+              status: 'ACTIVE',
+              provider: 'google',
+              providerId: googleUser.sub,
+            },
+          ],
+          { session },
+        );
+
+        const userId = newUser[0]._id.toString();
 
         // Create auth security record
-        await tx.authSecurity.create({
-          data: {
-            authId: newUser.id,
-            failedAttempts: 0,
-            mfaEnabled: false,
-          },
-        });
+        await this.authSecurityModel.create(
+          [
+            {
+              authId: userId,
+              failedAttempts: 0,
+              mfaEnabled: false,
+            },
+          ],
+          { session },
+        );
 
         // Create user profile with Google data
-        await tx.userProfile.create({
-          data: {
-            authId: newUser.id,
-            firstName:
-              googleUser.given_name || googleUser.name?.split(' ')[0] || '',
-            lastName: googleUser.family_name || '',
-            avatarUrl: googleUser.picture || null,
-          },
-        });
+        await this.userProfileModel.create(
+          [
+            {
+              authId: userId,
+              firstName:
+                googleUser.given_name || googleUser.name?.split(' ')[0] || '',
+              lastName: googleUser.family_name || '',
+              avatarUrl: googleUser.picture || null,
+            },
+          ],
+          { session },
+        );
 
         // Log user registration activity
         await this.activityLogService.logCreate(
           'authUser',
-          newUser.id,
+          userId,
           {
             email: googleUser.email,
             username,
@@ -509,19 +511,25 @@ export class GoogleOAuthService {
             verified: 'true',
             provider: 'google',
           },
-          { ip, userAgent, actionedBy: newUser.id, device },
-          tx,
+          { ip, userAgent, actionedBy: userId, device },
+          session,
         );
 
-        return newUser;
-      });
+        await session.commitTransaction();
 
-      isNewUser = true;
+        user = newUser[0];
+        isNewUser = true;
 
-      this.customLogger.log(
-        `New user created via Google OAuth: ${googleUser.email}`,
-        this.context,
-      );
+        this.customLogger.log(
+          `New user created via Google OAuth: ${googleUser.email}`,
+          this.context,
+        );
+      } catch (error) {
+        await session.abortTransaction();
+        throw error;
+      } finally {
+        await session.endSession();
+      }
     } else {
       // Check account status
       if (user.status === 'BLOCKED' || user.status === 'SUSPENDED') {
@@ -537,7 +545,16 @@ export class GoogleOAuthService {
 
     // Generate tokens
     return this.generateTokensForUser(
-      user,
+      {
+        id: user._id.toString(),
+        email: user.email,
+        username: user.username,
+        role: user.role,
+        tokenVersion: user.tokenVersion,
+        verified: user.verified,
+        provider: user.provider,
+        providerId: user.providerId || null,
+      },
       { ip, userAgent, device },
       isNewUser,
     );
@@ -740,16 +757,14 @@ export class GoogleOAuthService {
     provider?: string;
   }): Promise<void> {
     try {
-      await this.prismaService.loginHistory.create({
-        data: {
-          authId: data.authId,
-          ipAddress: data.ip,
-          userAgent: data.userAgent,
-          device_id: data.device,
-          action: 'login',
-          success: data.success,
-          failureReason: data.failureReason,
-        },
+      await this.loginHistoryModel.create({
+        authId: data.authId,
+        ipAddress: data.ip,
+        userAgent: data.userAgent,
+        deviceId: data.device,
+        action: 'login',
+        success: data.success,
+        failureReason: data.failureReason,
       });
     } catch (error) {
       this.customLogger.error(

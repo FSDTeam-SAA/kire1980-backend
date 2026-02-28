@@ -16,7 +16,7 @@ import {
   JobLocationType,
   AppliedVia,
   JobPriority,
-} from '@prisma/client';
+} from '../enums';
 
 export class JobFilterDto {
   // ================================

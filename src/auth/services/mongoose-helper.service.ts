@@ -7,7 +7,7 @@ import {
   UserProfile,
   LoginHistory,
   EmailHistory,
-} from '../database/schemas';
+} from '../../database/schemas';
 
 @Injectable()
 export class MongooseHelper {

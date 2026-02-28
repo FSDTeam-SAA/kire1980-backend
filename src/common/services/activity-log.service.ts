@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from './prisma.service';
-import { Prisma } from '@prisma/client';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { ActivityLogEvent } from '../../database/schemas';
 import { CustomLoggerService } from './custom-logger.service';
+import { ClientSession } from 'mongoose';
 
 export interface ActivityLogMetadata {
   ip?: string;
@@ -19,7 +21,8 @@ export interface FieldChange {
 @Injectable()
 export class ActivityLogService {
   constructor(
-    private readonly prisma: PrismaService,
+    @InjectModel(ActivityLogEvent.name)
+    private activityLogEventModel: Model<ActivityLogEvent>,
     private readonly customLogger: CustomLoggerService,
   ) {}
 
@@ -43,7 +46,7 @@ export class ActivityLogService {
       changes?: FieldChange[];
       metadata: ActivityLogMetadata;
     },
-    tx?: Prisma.TransactionClient,
+    session?: ClientSession,
   ) {
     const {
       tableName,
@@ -53,30 +56,21 @@ export class ActivityLogService {
       changes = [],
       metadata,
     } = params;
-    const prismaClient = tx || this.prisma;
 
-    return await prismaClient.activityLogEvent.create({
-      data: {
-        tableName,
-        recordId,
-        action,
-        eventType: eventType || action,
-        actionedBy: metadata.actionedBy || null,
-        ipAddress: metadata.ip,
-        userAgent: metadata.userAgent,
-        device: metadata.device,
-        details:
-          changes.length > 0
-            ? {
-                create: changes.map((change) => ({
-                  fieldName: change.fieldName,
-                  oldValue: change.oldValue,
-                  newValue: change.newValue,
-                })),
-              }
-            : undefined,
-      },
-    });
+    const createData: any = {
+      tableName,
+      recordId,
+      action,
+      eventType: eventType || action,
+      actionedBy: metadata.actionedBy || null,
+      ipAddress: metadata.ip,
+      userAgent: metadata.userAgent,
+      device: metadata.device,
+      details: changes,
+    };
+
+    const options = session ? { session } : {};
+    return await this.activityLogEventModel.create([createData], options);
   }
 
   /**
@@ -87,7 +81,7 @@ export class ActivityLogService {
     recordId: string,
     fields: Record<string, any>,
     metadata: ActivityLogMetadata,
-    tx?: Prisma.TransactionClient,
+    session?: ClientSession,
   ) {
     const changes: FieldChange[] = Object.entries(fields).map(
       ([key, value]) => ({
@@ -106,7 +100,7 @@ export class ActivityLogService {
         changes,
         metadata,
       },
-      tx,
+      session,
     );
   }
 
@@ -119,7 +113,7 @@ export class ActivityLogService {
     oldData: Record<string, any>,
     newData: Record<string, any>,
     metadata: ActivityLogMetadata,
-    tx?: Prisma.TransactionClient,
+    session?: ClientSession,
   ) {
     const changes: FieldChange[] = [];
 
@@ -149,7 +143,7 @@ export class ActivityLogService {
         changes,
         metadata,
       },
-      tx,
+      session,
     );
   }
 
@@ -161,7 +155,7 @@ export class ActivityLogService {
     recordId: string,
     deletedData: Record<string, any>,
     metadata: ActivityLogMetadata,
-    tx?: Prisma.TransactionClient,
+    session?: ClientSession,
   ) {
     const changes: FieldChange[] = Object.entries(deletedData).map(
       ([key, value]) => ({
@@ -180,7 +174,7 @@ export class ActivityLogService {
         changes,
         metadata,
       },
-      tx,
+      session,
     );
   }
 
@@ -193,7 +187,7 @@ export class ActivityLogService {
     eventType: 'login' | 'logout' | 'password_change' | 'profile_update',
     metadata: ActivityLogMetadata,
     changes?: FieldChange[],
-    tx?: Prisma.TransactionClient,
+    session?: ClientSession,
   ) {
     // Map eventType to action
     const actionMap = {
@@ -212,7 +206,7 @@ export class ActivityLogService {
         changes,
         metadata,
       },
-      tx,
+      session,
     );
   }
 }

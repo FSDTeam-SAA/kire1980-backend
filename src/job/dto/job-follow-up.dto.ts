@@ -6,7 +6,7 @@ import {
   IsDateString,
   IsBoolean,
 } from 'class-validator';
-import { FollowUpStatus, FollowUpType } from '@prisma/client';
+import { FollowUpStatus, FollowUpType } from '../enums';
 
 // ================================
 // Create Follow-Up DTO

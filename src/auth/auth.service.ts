@@ -1,9 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 import { Injectable } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model, Connection, ClientSession } from 'mongoose';
 import { CreateAuthDto } from './dto/create-auth.dto';
 import { AuthUtilsService } from './services/auth-utils.service';
+import { MongooseHelper } from './services/mongoose-helper.service';
 import { AUTH_CONFIG } from './config/auth.config';
-import { PrismaService } from '../common/services/prisma.service';
 import { ActivityLogService } from '../common/services/activity-log.service';
 import { RedisService } from '../common/services/redis.service';
 import { EmailQueueService } from '../common/queues/email/email.queue';
@@ -11,6 +13,12 @@ import { CustomLoggerService } from '../common/services/custom-logger.service';
 import AppError from '../common/errors/app.error';
 import * as bcrypt from 'bcryptjs';
 import config from '../common/config/app.config';
+import {
+  AuthUser,
+  AuthSecurity,
+  EmailHistory,
+  LoginHistory,
+} from '../database/schemas';
 import {
   ILoginResponse,
   IStoredRefreshToken,
@@ -24,12 +32,20 @@ import {
 @Injectable()
 export class AuthService {
   constructor(
+    @InjectModel(AuthUser.name) private authUserModel: Model<AuthUser>,
+    @InjectModel(AuthSecurity.name)
+    private authSecurityModel: Model<AuthSecurity>,
+    @InjectModel(EmailHistory.name)
+    private emailHistoryModel: Model<EmailHistory>,
+    @InjectModel(LoginHistory.name)
+    private loginHistoryModel: Model<LoginHistory>,
     private readonly authUtilsService: AuthUtilsService,
-    private readonly prismaService: PrismaService,
+    private readonly mongooseHelper: MongooseHelper,
     private readonly activityLogService: ActivityLogService,
     private readonly redisService: RedisService,
     private readonly emailQueueService: EmailQueueService,
     private readonly customLogger: CustomLoggerService,
+    private readonly connection: Connection,
   ) {}
 
   async create(
@@ -67,11 +83,10 @@ export class AuthService {
     }
 
     // Check if user already exists with email or username
-    const existingUser = await this.prismaService.authUser.findFirst({
-      where: {
-        OR: [{ email }, { username }],
-      },
-    });
+    const existingUser = await this.mongooseHelper.findUserByEmailOrUsername(
+      email,
+      username,
+    );
 
     if (existingUser) {
       if (existingUser.email === email) {
@@ -91,7 +106,6 @@ export class AuthService {
     }
 
     // Generate verification code
-    // Generate verification code
     const verificationCode = this.authUtilsService.generateVerificationCode();
     const expiresAt = new Date(
       Date.now() + this.parseExpiryToSeconds(VERIFICATION) * 1000,
@@ -102,11 +116,14 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     // Create user with auth security in a transaction
-    const newUser = await this.prismaService.$transaction(
-      async (tx): Promise<{ id: string; email: string; username: string }> => {
-        // Create auth user
-        const user = await tx.authUser.create({
-          data: {
+    const session = await this.connection.startSession();
+    session.startTransaction();
+
+    try {
+      // Create auth user
+      const user = await this.authUserModel.create(
+        [
+          {
             email,
             username,
             password: hashedPassword,
@@ -115,100 +132,113 @@ export class AuthService {
             status: 'ACTIVE',
             provider: 'local',
           },
-        });
+        ],
+        { session },
+      );
 
-        // Create auth security record
-        await tx.authSecurity.create({
-          data: {
-            authId: user.id,
+      const userId = user[0]._id.toString();
+
+      // Create auth security record
+      await this.authSecurityModel.create(
+        [
+          {
+            authId: userId,
             failedAttempts: 0,
             mfaEnabled: false,
-            lastPasswordChange: new Date(),
           },
-        });
+        ],
+        { session },
+      );
 
-        // Create email history record for verification email
-        await tx.emailHistory.create({
-          data: {
-            authId: user.id,
+      // Create email history record for verification email
+      await this.emailHistoryModel.create(
+        [
+          {
+            authId: userId,
             emailTo: email,
             emailType: 'verification',
             subject: 'Verify your email address',
-            messageId: `verify-${user.id}-${Date.now()}`,
+            messageId: `verify-${userId}-${Date.now()}`,
             emailStatus: 'pending',
             ipAddress: ip,
             userAgent: userAgent,
           },
-        });
+        ],
+        { session },
+      );
 
-        // Log user registration activity
-        await this.activityLogService.logCreate(
-          'authUser',
-          user.id,
-          {
-            email,
-            username,
-            role: 'USER',
-            status: 'ACTIVE',
-            verified: 'false',
-            provider: 'local',
-          },
-          { ip, userAgent, actionedBy: user.id, device },
-          tx,
+      // Log user registration activity
+      await this.activityLogService.logCreate(
+        'authUser',
+        userId,
+        {
+          email,
+          username,
+          role: 'USER',
+          status: 'ACTIVE',
+          verified: 'false',
+          provider: 'local',
+        },
+        { ip, userAgent, actionedBy: userId, device },
+        session,
+      );
+
+      await session.commitTransaction();
+
+      // Store verification code in Redis with expiry
+      const verificationKey = `${config.redis_cache_key_prefix}:${AUTH_CONFIG.CACHE_PREFIXES.VERIFICATION_TOKEN}:${email}`;
+      const ttlSeconds = Math.floor((expiresAt.getTime() - Date.now()) / 1000);
+
+      await this.redisService.set(
+        verificationKey,
+        {
+          code: verificationCode,
+          userId,
+          email,
+          expiresAt: expiresAt.toISOString(),
+        },
+        ttlSeconds,
+      );
+
+      // Queue verification email for async processing
+      try {
+        await this.emailQueueService.sendVerificationEmail(
+          email,
+          username,
+          verificationCode,
+          userId,
         );
-
-        return user;
-      },
-    );
-
-    // Store verification code in Redis with expiry
-    const verificationKey = `${config.redis_cache_key_prefix}:${AUTH_CONFIG.CACHE_PREFIXES.VERIFICATION_TOKEN}:${email}`;
-    const ttlSeconds = Math.floor((expiresAt.getTime() - Date.now()) / 1000);
-
-    await this.redisService.set(
-      verificationKey,
-      {
-        code: verificationCode,
-        userId: newUser.id,
-        email: newUser.email,
-        expiresAt: expiresAt.toISOString(),
-      },
-      ttlSeconds,
-    );
-
-    // Queue verification email for async processing
-    try {
-      await this.emailQueueService.sendVerificationEmail(
-        email,
-        username,
-        verificationCode,
-        newUser.id,
-      );
-      this.customLogger.log(
-        `User registered successfully: ${email}, verification email queued`,
-        'AuthService',
-      );
+        this.customLogger.log(
+          `User registered successfully: ${email}, verification email queued`,
+          'AuthService',
+        );
+      } catch (error) {
+        this.customLogger.error(
+          `Failed to queue verification email for ${email}`,
+          error instanceof Error ? error.stack : undefined,
+          'AuthService',
+        );
+        console.error('Failed to queue verification email:', error);
+        // Update email history status to 'failed'
+        await this.emailHistoryModel.updateMany(
+          {
+            authId: userId,
+            emailType: 'verification',
+            emailStatus: 'pending',
+          },
+          {
+            emailStatus: 'failed',
+            errorMessage:
+              error instanceof Error ? error.message : 'Failed to queue email',
+          },
+        );
+        // Don't throw error, user is created, just email failed
+      }
     } catch (error) {
-      this.customLogger.error(
-        `Failed to queue verification email for ${email}`,
-        error instanceof Error ? error.stack : undefined,
-        'AuthService',
-      );
-      console.error('Failed to queue verification email:', error);
-      // Update email history status to 'failed'
-      await this.prismaService.emailHistory.updateMany({
-        where: {
-          authId: newUser.id,
-          emailType: 'verification',
-          emailStatus: 'pending',
-        },
-        data: {
-          emailStatus: 'failed',
-          errorMessage:
-            error instanceof Error ? error.message : 'Failed to queue email',
-        },
-      });
-      // Don't throw error, user is created, just email failed
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      await session.endSession();
     }
   }
 
@@ -256,9 +286,7 @@ export class AuthService {
     }
 
     // Find user
-    const user = await this.prismaService.authUser.findUnique({
-      where: { email },
-    });
+    const user = await this.authUserModel.findOne({ email });
 
     if (!user) {
       throw AppError.notFound('User not found');
@@ -269,18 +297,22 @@ export class AuthService {
     }
 
     // Update user as verified
-    await this.prismaService.$transaction(async (tx) => {
-      await tx.authUser.update({
-        where: { id: user.id },
-        data: { verified: true },
-      });
+    const session = await this.connection.startSession();
+    session.startTransaction();
+
+    try {
+      await this.authUserModel.findByIdAndUpdate(
+        user._id,
+        { verified: true },
+        { session },
+      );
 
       // Log verification activity
       await this.activityLogService.logCustomEvent(
         'authUser',
-        user.id,
+        user._id.toString(),
         'profile_update',
-        { ip, userAgent, actionedBy: user.id },
+        { ip, userAgent, actionedBy: user._id.toString() },
         [
           {
             fieldName: 'verified',
@@ -288,9 +320,16 @@ export class AuthService {
             newValue: 'true',
           },
         ],
-        tx,
+        session,
       );
-    });
+
+      await session.commitTransaction();
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      await session.endSession();
+    }
 
     // Delete verification code from Redis
     await this.redisService.del(verificationKey);
@@ -300,7 +339,7 @@ export class AuthService {
       await this.emailQueueService.sendWelcomeEmail(
         email,
         user.username,
-        user.id,
+        user._id.toString(),
       );
       this.customLogger.log(
         `Email verified successfully for: ${email}, welcome email queued`,
@@ -342,9 +381,7 @@ export class AuthService {
     );
 
     // Find user
-    const user = await this.prismaService.authUser.findUnique({
-      where: { email },
-    });
+    const user = await this.authUserModel.findOne({ email });
 
     if (!user) {
       throw AppError.notFound('User not found');
@@ -368,7 +405,7 @@ export class AuthService {
       verificationKey,
       {
         code: verificationCode,
-        userId: user.id,
+        userId: user._id.toString(),
         email: user.email,
         expiresAt: expiresAt.toISOString(),
       },
@@ -376,17 +413,15 @@ export class AuthService {
     );
 
     // Create new email history record
-    await this.prismaService.emailHistory.create({
-      data: {
-        authId: user.id,
-        emailTo: email,
-        emailType: 'verification',
-        subject: 'Verify your email address',
-        messageId: `verify-resend-${user.id}-${Date.now()}`,
-        emailStatus: 'pending',
-        ipAddress: ip,
-        userAgent: userAgent,
-      },
+    await this.emailHistoryModel.create({
+      authId: user._id.toString(),
+      emailTo: email,
+      emailType: 'verification',
+      subject: 'Verify your email address',
+      messageId: `verify-resend-${user._id.toString()}-${Date.now()}`,
+      emailStatus: 'pending',
+      ipAddress: ip,
+      userAgent: userAgent,
     });
 
     // Queue verification email for async processing
@@ -395,23 +430,23 @@ export class AuthService {
         email,
         user.username,
         verificationCode,
-        user.id,
+        user._id.toString(),
       );
     } catch (error) {
       console.error('Failed to queue verification email:', error);
       // Update email history status to 'failed'
-      await this.prismaService.emailHistory.updateMany({
-        where: {
-          authId: user.id,
+      await this.emailHistoryModel.updateMany(
+        {
+          authId: user._id.toString(),
           emailType: 'verification',
           emailStatus: 'pending',
         },
-        data: {
+        {
           emailStatus: 'failed',
           errorMessage:
             error instanceof Error ? error.message : 'Failed to queue email',
         },
-      });
+      );
       throw AppError.badRequest('Failed to send verification email');
     }
 
@@ -444,28 +479,15 @@ export class AuthService {
     ]);
 
     // Fetch user with security data in single optimized query
-    const user = await this.prismaService.authUser.findUnique({
-      where: { email },
-      select: {
-        id: true,
-        email: true,
-        username: true,
-        password: true,
-        role: true,
-        verified: true,
-        status: true,
-        provider: true,
-        tokenVersion: true,
-        authSecurity: {
-          select: {
-            id: true,
-            failedAttempts: true,
-            lastFailedAt: true,
-            lockExpiresAt: true,
-          },
-        },
-      },
-    });
+    const user = await this.authUserModel.findOne({ email }).lean();
+
+    // Also get security data separately
+    let security = null;
+    if (user) {
+      security = await this.authSecurityModel
+        .findOne({ authId: user._id.toString() })
+        .lean();
+    }
 
     // Generic error message to prevent user enumeration
     const invalidCredentialsError = AppError.unauthorized(
@@ -495,6 +517,8 @@ export class AuthService {
       throw invalidCredentialsError;
     }
 
+    const userId = user._id.toString();
+
     // Check OAuth provider
     if (user.provider !== 'local') {
       throw AppError.badRequest(
@@ -505,7 +529,7 @@ export class AuthService {
     // Check account status
     if (user.status === 'BLOCKED' || user.status === 'SUSPENDED') {
       void this.logLoginAttempt({
-        authId: user.id,
+        authId: userId,
         ip,
         userAgent,
         device,
@@ -524,13 +548,12 @@ export class AuthService {
     }
 
     // Check account lockout
-    const security = user.authSecurity;
     if (security?.lockExpiresAt && new Date() < security.lockExpiresAt) {
       const remainingTime = Math.ceil(
         (security.lockExpiresAt.getTime() - Date.now()) / 1000 / 60,
       );
       void this.logLoginAttempt({
-        authId: user.id,
+        authId: userId,
         ip,
         userAgent,
         device,
@@ -548,7 +571,7 @@ export class AuthService {
 
     if (!isPasswordValid) {
       await this.handleFailedLoginAttempt(
-        user.id,
+        userId,
         security?.failedAttempts || 0,
         MAX_FAILED_ATTEMPTS,
         LOCKOUT_DURATION_MS,
@@ -560,7 +583,7 @@ export class AuthService {
     // Check email verification
     if (!user.verified) {
       void this.logLoginAttempt({
-        authId: user.id,
+        authId: userId,
         ip,
         userAgent,
         device,
@@ -573,7 +596,7 @@ export class AuthService {
     }
 
     // Distributed lock to prevent concurrent login race conditions
-    const lockKey = `${config.redis_cache_key_prefix}:lock:login:${user.id}`;
+    const lockKey = `${config.redis_cache_key_prefix}:lock:login:${userId}`;
     const lockAcquired = await this.redisService.setNX(lockKey, '1', 5); // 5 second TTL
 
     if (!lockAcquired) {
@@ -588,14 +611,14 @@ export class AuthService {
 
       // Create access token (stateless, minimal payload - no email)
       const accessToken: string = this.authUtilsService.createAccessToken({
-        userId: user.id,
+        userId,
         role: user.role as unknown as UserRole,
         tokenVersion: user.tokenVersion, // Include tokenVersion for hybrid JWT validation
       });
 
       // Create refresh token with JTI embedded
       const refreshToken: string = this.authUtilsService.createRefreshToken(
-        { userId: user.id },
+        { userId },
         jti,
       );
 
@@ -608,11 +631,11 @@ export class AuthService {
       );
 
       // Redis key with proper naming convention
-      const refreshTokenKey = `${config.redis_cache_key_prefix}:${AUTH_CONFIG.CACHE_PREFIXES.REFRESH_TOKEN}:${user.id}:${jti}`;
+      const refreshTokenKey = `${config.redis_cache_key_prefix}:${AUTH_CONFIG.CACHE_PREFIXES.REFRESH_TOKEN}:${userId}:${jti}`;
 
       // Stored token data (with hash, not raw token)
       const storedTokenData: IStoredRefreshToken = {
-        userId: user.id,
+        userId,
         jti,
         tokenHash, // Store hash, not raw token
         ip,
@@ -631,7 +654,7 @@ export class AuthService {
         );
       } catch (error) {
         console.error('Failed to store refresh token in Redis:', {
-          userId: user.id,
+          userId,
           jti,
           error: error instanceof Error ? error.message : String(error),
         });
@@ -642,10 +665,10 @@ export class AuthService {
 
       try {
         // CRITICAL: Track session in user's session list
-        await this.addUserSession(user.id, jti, refreshTokenTTL);
+        await this.addUserSession(userId, jti, refreshTokenTTL);
       } catch (error) {
         console.error('Failed to add user session to Redis:', {
-          userId: user.id,
+          userId,
           jti,
           error: error instanceof Error ? error.message : String(error),
         });
@@ -653,7 +676,7 @@ export class AuthService {
         // Rollback: Remove the refresh token we just stored
         await this.redisService.del(refreshTokenKey).catch((rollbackError) => {
           console.error('CRITICAL: Failed to rollback refresh token:', {
-            userId: user.id,
+            userId,
             jti,
             error:
               rollbackError instanceof Error
@@ -670,12 +693,12 @@ export class AuthService {
       // NON-CRITICAL: Enforce max devices (log but don't fail login)
       try {
         await this.enforceMaxDevices(
-          user.id,
+          userId,
           AUTH_CONFIG.SESSION.MAX_DEVICES_PER_USER,
         );
       } catch (error) {
         console.error('Failed to enforce max devices (non-critical):', {
-          userId: user.id,
+          userId,
           error: error instanceof Error ? error.message : String(error),
         });
         // Continue - login still succeeds
@@ -684,17 +707,14 @@ export class AuthService {
       // NON-CRITICAL: DB operations (fire-and-forget with detailed logging)
       void Promise.allSettled([
         security
-          ? this.prismaService.authSecurity.update({
-              where: { id: security.id },
-              data: {
-                failedAttempts: 0,
-                lastFailedAt: null,
-                lockExpiresAt: null,
-              },
+          ? this.authSecurityModel.findByIdAndUpdate(security._id, {
+              failedAttempts: 0,
+              lastFailedAt: null,
+              lockExpiresAt: null,
             })
           : Promise.resolve(),
         this.logLoginAttempt({
-          authId: user.id,
+          authId: userId,
           ip,
           userAgent,
           device,
@@ -712,7 +732,7 @@ export class AuthService {
         accessToken,
         refreshToken,
         user: {
-          id: user.id,
+          id: userId,
           email: user.email,
           username: user.username,
           role: user.role,
@@ -782,10 +802,10 @@ export class AuthService {
     }
 
     // Fetch user to get current role (may have changed)
-    const user = await this.prismaService.authUser.findUnique({
-      where: { id: userId },
-      select: { id: true, role: true, status: true, tokenVersion: true },
-    });
+    const user = await this.authUserModel
+      .findById(userId)
+      .select('id role status tokenVersion')
+      .lean();
 
     if (!user || user.status !== 'ACTIVE') {
       await this.revokeAllUserTokens(userId);
@@ -797,13 +817,13 @@ export class AuthService {
 
     // Create new tokens
     const newAccessToken: string = this.authUtilsService.createAccessToken({
-      userId: user.id,
+      userId: user._id.toString(),
       role: user.role as unknown as UserRole,
       tokenVersion: user.tokenVersion, // Include tokenVersion for hybrid JWT validation
     });
 
     const newRefreshToken: string = this.authUtilsService.createRefreshToken(
-      { userId: user.id },
+      { userId: user._id.toString() },
       newJti,
     );
 
@@ -995,17 +1015,17 @@ export class AuthService {
     const newFailedAttempts = currentFailedAttempts + 1;
     const shouldLock = newFailedAttempts >= maxAttempts;
 
+    const updateData: any = {
+      failedAttempts: newFailedAttempts,
+      lastFailedAt: new Date(),
+    };
+
+    if (shouldLock) {
+      updateData.lockExpiresAt = new Date(Date.now() + lockoutDuration);
+    }
+
     await Promise.all([
-      this.prismaService.authSecurity.update({
-        where: { authId: userId },
-        data: {
-          failedAttempts: newFailedAttempts,
-          lastFailedAt: new Date(),
-          ...(shouldLock && {
-            lockExpiresAt: new Date(Date.now() + lockoutDuration),
-          }),
-        },
-      }),
+      this.authSecurityModel.findOneAndUpdate({ authId: userId }, updateData),
       this.logLoginAttempt({
         authId: userId,
         ip: meta.ip,
@@ -1040,19 +1060,17 @@ export class AuthService {
       return Promise.resolve();
     }
 
-    return this.prismaService.loginHistory
+    return this.loginHistoryModel
       .create({
-        data: {
-          authId: data.authId,
-          ipAddress: data.ip,
-          userAgent: data.userAgent,
-          device_id: data.device,
-          action: 'login',
-          success: data.success,
-          failureReason: data.failureReason,
-          attemptNumber: data.attemptNumber || 1,
-          isSuspicious: data.isSuspicious || false,
-        },
+        authId: data.authId,
+        ipAddress: data.ip,
+        userAgent: data.userAgent,
+        deviceId: data.device,
+        action: 'login',
+        success: data.success,
+        failureReason: data.failureReason,
+        attemptNumber: data.attemptNumber || 1,
+        isSuspicious: data.isSuspicious || false,
       })
       .then(() => undefined)
       .catch((error) => {
@@ -1095,18 +1113,17 @@ export class AuthService {
    */
   async incrementTokenVersion(userId: string): Promise<void> {
     // Increment in database
-    await this.prismaService.authUser.update({
-      where: { id: userId },
-      data: { tokenVersion: { increment: 1 } },
+    await this.authUserModel.findByIdAndUpdate(userId, {
+      $inc: { tokenVersion: 1 },
     });
 
     // Invalidate Redis cache so next guard check fetches new version
     const cacheKey = `${config.redis_cache_key_prefix}:token_version:${userId}`;
     await this.redisService.del(cacheKey);
 
-    this.customLogger.log(`Token version incremented for user ${userId}, {
-      context: 'AuthService.incrementTokenVersion',
-      userId,
-    }`);
+    this.customLogger.log(
+      `Token version incremented for user ${userId}`,
+      'AuthService.incrementTokenVersion',
+    );
   }
 }
