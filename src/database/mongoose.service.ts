@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnApplicationShutdown, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnApplicationShutdown,
+  OnModuleInit,
+} from '@nestjs/common';
 import { Connection, connect } from 'mongoose';
 import { ConfigService } from '@nestjs/config';
 

@@ -9,7 +9,18 @@ export class Subscription extends Document {
   @Prop({ type: Types.ObjectId, ref: 'SubscriptionPlan', required: true })
   planId: Types.ObjectId;
 
-  @Prop({ enum: ['ACTIVE', 'PAST_DUE', 'CANCELED', 'TRIALING', 'INCOMPLETE', 'INCOMPLETE_EXPIRED', 'UNPAID'], default: 'TRIALING' })
+  @Prop({
+    enum: [
+      'ACTIVE',
+      'PAST_DUE',
+      'CANCELED',
+      'TRIALING',
+      'INCOMPLETE',
+      'INCOMPLETE_EXPIRED',
+      'UNPAID',
+    ],
+    default: 'TRIALING',
+  })
   status: string;
 
   @Prop()

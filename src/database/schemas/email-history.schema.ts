@@ -9,7 +9,10 @@ export class EmailHistory extends Document {
   @Prop()
   emailTo: string;
 
-  @Prop({ enum: ['verification', 'password_reset', 'notification'], default: 'notification' })
+  @Prop({
+    enum: ['verification', 'password_reset', 'notification'],
+    default: 'notification',
+  })
   emailType: string;
 
   @Prop({ enum: ['sendgrid', 'mailgun', 'ses', 'smtp'], default: 'smtp' })
@@ -19,7 +22,15 @@ export class EmailHistory extends Document {
   messageId: string;
 
   @Prop({
-    enum: ['sent', 'failed', 'pending', 'bounced', 'delivered', 'opened', 'clicked'],
+    enum: [
+      'sent',
+      'failed',
+      'pending',
+      'bounced',
+      'delivered',
+      'opened',
+      'clicked',
+    ],
     default: 'pending',
   })
   emailStatus: string;

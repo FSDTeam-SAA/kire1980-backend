@@ -1,5 +1,5 @@
 import { Schema, Prop, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Document } from 'mongoose';
 
 @Schema({ collection: 'subscription_plans' })
 export class SubscriptionPlan extends Document {
@@ -31,4 +31,5 @@ export class SubscriptionPlan extends Document {
   updatedAt: Date;
 }
 
-export const SubscriptionPlanSchema = SchemaFactory.createForClass(SubscriptionPlan);
+export const SubscriptionPlanSchema =
+  SchemaFactory.createForClass(SubscriptionPlan);

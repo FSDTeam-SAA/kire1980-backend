@@ -81,7 +81,16 @@ export class JobDocumentDoc {
   @Prop()
   name: string;
 
-  @Prop({ enum: ['RESUME', 'COVER_LETTER', 'PORTFOLIO', 'OFFER_LETTER', 'CONTRACT', 'OTHER'] })
+  @Prop({
+    enum: [
+      'RESUME',
+      'COVER_LETTER',
+      'PORTFOLIO',
+      'OFFER_LETTER',
+      'CONTRACT',
+      'OTHER',
+    ],
+  })
   type: string;
 
   @Prop()
@@ -111,7 +120,15 @@ export class JobReminderDoc {
   @Prop({ type: Types.ObjectId, auto: true })
   _id: Types.ObjectId;
 
-  @Prop({ enum: ['FOLLOW_UP_DUE', 'INTERVIEW_REMINDER', 'OFFER_DEADLINE', 'APPLICATION_DEADLINE', 'CUSTOM'] })
+  @Prop({
+    enum: [
+      'FOLLOW_UP_DUE',
+      'INTERVIEW_REMINDER',
+      'OFFER_DEADLINE',
+      'APPLICATION_DEADLINE',
+      'CUSTOM',
+    ],
+  })
   reminderType: string;
 
   @Prop()
@@ -120,7 +137,10 @@ export class JobReminderDoc {
   @Prop()
   sentAt: Date;
 
-  @Prop({ enum: ['PENDING', 'SENT', 'FAILED', 'CANCELLED'], default: 'PENDING' })
+  @Prop({
+    enum: ['PENDING', 'SENT', 'FAILED', 'CANCELLED'],
+    default: 'PENDING',
+  })
   status: string;
 
   @Prop({ enum: ['EMAIL', 'PUSH', 'SMS'], default: 'EMAIL' })
@@ -162,7 +182,16 @@ export class Job extends Document {
   jobLocation: string;
 
   @Prop({
-    enum: ['APPLIED', 'SCREENING', 'INTERVIEW', 'OFFER', 'REJECTED', 'ACCEPTED', 'DECLINED', 'WITHDRAWN'],
+    enum: [
+      'APPLIED',
+      'SCREENING',
+      'INTERVIEW',
+      'OFFER',
+      'REJECTED',
+      'ACCEPTED',
+      'DECLINED',
+      'WITHDRAWN',
+    ],
     default: 'APPLIED',
   })
   status: string;
@@ -194,10 +223,24 @@ export class Job extends Document {
   @Prop()
   appliedDate: Date;
 
-  @Prop({ enum: ['LINKEDIN', 'INDEED', 'COMPANY_WEBSITE', 'REFERRAL', 'RECRUITER', 'JOB_BOARD', 'CAREER_FAIR', 'OTHER'] })
+  @Prop({
+    enum: [
+      'LINKEDIN',
+      'INDEED',
+      'COMPANY_WEBSITE',
+      'REFERRAL',
+      'RECRUITER',
+      'JOB_BOARD',
+      'CAREER_FAIR',
+      'OTHER',
+    ],
+  })
   appliedVia: string;
 
-  @Prop({ enum: ['NO_RESPONSE', 'RESPONSE_RECEIVED', 'AWAITING_RESPONSE'], default: 'AWAITING_RESPONSE' })
+  @Prop({
+    enum: ['NO_RESPONSE', 'RESPONSE_RECEIVED', 'AWAITING_RESPONSE'],
+    default: 'AWAITING_RESPONSE',
+  })
   responseStatus: string;
 
   @Prop()
@@ -210,7 +253,18 @@ export class Job extends Document {
   @Prop()
   interviewDate: Date;
 
-  @Prop({ enum: ['PHONE_SCREEN', 'TECHNICAL', 'BEHAVIORAL', 'SYSTEM_DESIGN', 'ONSITE', 'PANEL', 'FINAL', 'OTHER'] })
+  @Prop({
+    enum: [
+      'PHONE_SCREEN',
+      'TECHNICAL',
+      'BEHAVIORAL',
+      'SYSTEM_DESIGN',
+      'ONSITE',
+      'PANEL',
+      'FINAL',
+      'OTHER',
+    ],
+  })
   interviewType: string;
 
   @Prop()
@@ -249,7 +303,16 @@ export class Job extends Document {
   rejectionFeedback: string;
 
   // AI Parsing Fields
-  @Prop({ enum: ['MANUAL', 'AI_URL_PARSED', 'AI_DESCRIPTION_PARSED', 'IMPORTED', 'EXTENSION'], default: 'MANUAL' })
+  @Prop({
+    enum: [
+      'MANUAL',
+      'AI_URL_PARSED',
+      'AI_DESCRIPTION_PARSED',
+      'IMPORTED',
+      'EXTENSION',
+    ],
+    default: 'MANUAL',
+  })
   sourceType: string;
 
   @Prop({ type: Object })
