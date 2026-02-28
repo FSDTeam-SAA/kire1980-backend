@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Connection, ClientSession } from 'mongoose';
+import { Model, Connection } from 'mongoose';
 import { CreateAuthDto } from './dto/create-auth.dto';
 import { AuthUtilsService } from './services/auth-utils.service';
 import { MongooseHelper } from './services/mongoose-helper.service';
