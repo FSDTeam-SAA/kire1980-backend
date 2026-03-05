@@ -5,6 +5,7 @@ import { EmailService } from './services/email.service';
 import { RedisService } from './services/redis.service';
 import { CustomLoggerService } from './services/custom-logger.service';
 import { QueueModule } from './modules/queue.module';
+import { DatabaseModule } from '../database/database.module';
 import {
   ActivityLogEvent,
   ActivityLogEventSchema,
@@ -14,6 +15,7 @@ import {
 
 @Module({
   imports: [
+    DatabaseModule,
     MongooseModule.forFeature([
       { name: ActivityLogEvent.name, schema: ActivityLogEventSchema },
       { name: EmailHistory.name, schema: EmailHistorySchema },

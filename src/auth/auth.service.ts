@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
+import { InjectModel, InjectConnection } from '@nestjs/mongoose';
 import { Model, Connection } from 'mongoose';
 import { CreateAuthDto } from './dto/create-auth.dto';
 import { AuthUtilsService } from './services/auth-utils.service';
@@ -45,6 +45,7 @@ export class AuthService {
     private readonly redisService: RedisService,
     private readonly emailQueueService: EmailQueueService,
     private readonly customLogger: CustomLoggerService,
+    @InjectConnection()
     private readonly connection: Connection,
   ) {}
 

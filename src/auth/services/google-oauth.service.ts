@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
+import { InjectModel, InjectConnection } from '@nestjs/mongoose';
 import { Model, Connection } from 'mongoose';
 import crypto from 'crypto';
 import * as jwt from 'jsonwebtoken';
@@ -52,6 +52,7 @@ export class GoogleOAuthService {
     private readonly redisService: RedisService,
     private readonly activityLogService: ActivityLogService,
     private readonly authUtilsService: AuthUtilsService,
+    @InjectConnection()
     private readonly connection: Connection,
   ) {
     // Initialize JWKS client for Google public key retrieval

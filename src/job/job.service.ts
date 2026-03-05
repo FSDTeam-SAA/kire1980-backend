@@ -3,7 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
+import { InjectModel, InjectConnection } from '@nestjs/mongoose';
 import { Model, Connection, ClientSession } from 'mongoose';
 import { Job as JobDocument } from '../database/schemas';
 import {
@@ -34,6 +34,7 @@ export class JobService {
     @InjectModel(JobDocument.name) private jobModel: Model<JobDocument>,
     private readonly activityLogService: ActivityLogService,
     private readonly customLogger: CustomLoggerService,
+    @InjectConnection()
     private readonly connection: Connection,
   ) {}
 

@@ -5,9 +5,11 @@ import { EmailService } from '../services/email.service';
 import { PrismaService } from '../services/prisma.service';
 import { EmailQueueService } from '../queues/email/email.queue';
 import { EmailProcessor } from '../queues/email/email.processor';
+import { DatabaseModule } from '../../database/database.module';
 
 @Module({
   imports: [
+    DatabaseModule,
     BullModule.forRoot({
       connection: {
         host: process.env.REDIS_HOST || 'localhost',

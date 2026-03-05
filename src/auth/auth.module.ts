@@ -4,10 +4,12 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { AuthUtilsService } from './services/auth-utils.service';
 import { GoogleOAuthService } from './services/google-oauth.service';
+import { MongooseHelper } from './services/mongoose-helper.service';
 import { ActivityLogService } from '../common/services/activity-log.service';
 import { EmailService } from '../common/services/email.service';
 import { RedisService } from '../common/services/redis.service';
 import { QueueModule } from '../common/modules';
+import { DatabaseModule } from '../database/database.module';
 import {
   AuthUser,
   AuthUserSchema,
@@ -23,6 +25,7 @@ import {
 
 @Module({
   imports: [
+    DatabaseModule,
     MongooseModule.forFeature([
       { name: AuthUser.name, schema: AuthUserSchema },
       { name: AuthSecurity.name, schema: AuthSecuritySchema },
@@ -40,6 +43,7 @@ import {
     ActivityLogService,
     EmailService,
     RedisService,
+    MongooseHelper,
   ],
   exports: [AuthUtilsService, GoogleOAuthService, AuthService],
 })
