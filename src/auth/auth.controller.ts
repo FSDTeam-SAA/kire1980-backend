@@ -56,36 +56,6 @@ export class AuthController {
     return this.authService.create(payload, meta);
   }
 
-  // Strict rate limit for verification: 5 requests per 15 minutes
-  @Throttle({ default: THROTTLER_CONFIG.AUTH })
-  @Post('verify-email')
-  verifyEmail(
-    @Body('email') email: string,
-    @Body('code') code: string,
-    @Req() req: Request,
-  ) {
-    this.customLogger.log(
-      `Email verification attempt for: ${email}`,
-      'AuthController',
-    );
-    const meta = {
-      ip: req.ip || 'unknown',
-      userAgent: req.headers['user-agent'] || 'unknown',
-    };
-    return this.authService.verifyEmail(email, code, meta);
-  }
-
-  // Strict rate limit: 5 requests per 15 minutes
-  @Throttle({ default: THROTTLER_CONFIG.AUTH })
-  @Post('resend-verification-email')
-  resendVerificationEmail(@Body('email') email: string, @Req() req: Request) {
-    const meta = {
-      ip: req.ip || 'unknown',
-      userAgent: req.headers['user-agent'] || 'unknown',
-    };
-    return this.authService.resendVerificationEmail(email, meta);
-  }
-
   // ==========================================
   // Google OAuth Endpoints
   // ==========================================

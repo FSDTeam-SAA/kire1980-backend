@@ -92,14 +92,20 @@ export class GoogleOAuthService {
   }
 
   /**
-   * Generate a unique username from Google profile
+   * Build a display name from Google profile
    */
-  private generateUsername(googleUser: IGoogleUserInfo): string {
-    const baseName =
-      googleUser.given_name || googleUser.name?.split(' ')[0] || 'user';
-    const sanitized = baseName.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const uniqueSuffix = crypto.randomBytes(4).toString('hex');
-    return `${sanitized}_${uniqueSuffix}`;
+  private buildFullName(googleUser: IGoogleUserInfo): string {
+    const fullName = googleUser.name?.trim();
+    if (fullName) {
+      return fullName;
+    }
+
+    const fallbackName = [googleUser.given_name, googleUser.family_name]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+
+    return fallbackName || 'Google User';
   }
 
   /**
@@ -449,7 +455,7 @@ export class GoogleOAuthService {
       }
 
       // Create new user
-      const username = this.generateUsername(googleUser);
+      const fullName = this.buildFullName(googleUser);
 
       const session = await this.connection.startSession();
       session.startTransaction();
@@ -460,9 +466,9 @@ export class GoogleOAuthService {
           [
             {
               email: googleUser.email,
-              username,
+              fullName,
               password: '', // OAuth users don't have a password
-              role: 'USER',
+              role: 'customer',
               verified: true, // Google verified the email
               status: 'ACTIVE',
               provider: 'google',
@@ -506,8 +512,8 @@ export class GoogleOAuthService {
           userId,
           {
             email: googleUser.email,
-            username,
-            role: 'USER',
+            fullName,
+            role: 'customer',
             status: 'ACTIVE',
             verified: 'true',
             provider: 'google',
@@ -549,7 +555,7 @@ export class GoogleOAuthService {
       {
         id: user._id.toString(),
         email: user.email,
-        username: user.username,
+        fullName: user.fullName,
         role: user.role,
         tokenVersion: user.tokenVersion,
         verified: user.verified,
@@ -568,7 +574,7 @@ export class GoogleOAuthService {
     user: {
       id: string;
       email: string;
-      username: string;
+      fullName: string;
       role: string;
       tokenVersion: number;
       verified: boolean;
@@ -664,7 +670,7 @@ export class GoogleOAuthService {
         user: {
           id: user.id,
           email: user.email,
-          username: user.username,
+          fullName: user.fullName,
           role: user.role,
           verified: user.verified,
           provider: user.provider,

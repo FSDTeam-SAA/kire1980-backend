@@ -268,28 +268,23 @@ export class AuthUtilsService {
     newRole: UserRole,
   ): boolean {
     const { ROLE_HIERARCHY } = AUTH_CONFIG;
+    const roleLevels: Record<UserRole, number> = {
+      [UserRole.CUSTOMER]: ROLE_HIERARCHY.customer,
+      [UserRole.BUSINESS_OWNER]: ROLE_HIERARCHY.businessowner,
+      [UserRole.ADMIN]: ROLE_HIERARCHY.admin,
+    };
 
-    // Super admin can modify any role except other super admins
-    if (currentUserRole === UserRole.SUPER_ADMIN) {
-      return (
-        targetUserRole !== UserRole.SUPER_ADMIN &&
-        newRole !== UserRole.SUPER_ADMIN
-      );
-    }
-
-    // Admin can only modify moderator and customer roles
+    // Admin can only modify lower-level roles
     if (currentUserRole === UserRole.ADMIN) {
-      const targetRoleLevel =
-        ROLE_HIERARCHY[targetUserRole as keyof typeof ROLE_HIERARCHY] || 0;
-      const newRoleLevel =
-        ROLE_HIERARCHY[newRole as keyof typeof ROLE_HIERARCHY] || 0;
-      const adminLevel = ROLE_HIERARCHY[UserRole.ADMIN];
+      const targetRoleLevel = roleLevels[targetUserRole] || 0;
+      const newRoleLevel = roleLevels[newRole] || 0;
+      const adminLevel = roleLevels[UserRole.ADMIN];
 
       return targetRoleLevel < adminLevel && newRoleLevel < adminLevel;
     }
 
-    // Moderator can only modify customer roles
-    if (currentUserRole === UserRole.MODERATOR) {
+    // Business owner can only modify customer roles
+    if (currentUserRole === UserRole.BUSINESS_OWNER) {
       return (
         targetUserRole === UserRole.CUSTOMER && newRole === UserRole.CUSTOMER
       );

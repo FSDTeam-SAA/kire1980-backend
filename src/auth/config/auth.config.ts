@@ -41,10 +41,9 @@ export const AUTH_CONFIG = {
 
   // Role Hierarchy (higher number = more permissions)
   ROLE_HIERARCHY: {
-    CUSTOMER: 1,
-    MODERATOR: 2,
-    ADMIN: 3,
-    SUPER_ADMIN: 4,
+    customer: 1,
+    businessowner: 2,
+    admin: 3,
   },
 
   // Cache Prefixes (improved naming convention)

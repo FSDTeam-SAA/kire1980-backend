@@ -53,7 +53,8 @@ export class AuthService {
     payload: CreateAuthDto,
     meta: { ip: string; userAgent: string; device?: string },
   ): Promise<void> {
-    const { email, password, fullName } = payload;
+    const { email, password } = payload;
+    const fullName = payload.fullName ?? payload.username;
     const { ip, userAgent, device } = meta;
 
     this.customLogger.log(
@@ -62,7 +63,6 @@ export class AuthService {
     );
 
     const { LOGIN_MAX_ATTEMPTS, LOGIN_WINDOW_MS } = AUTH_CONFIG.RATE_LIMIT;
-    const { VERIFICATION } = AUTH_CONFIG.TOKEN_EXPIRY;
 
     // Check rate limiting for email, IP, and user agent
     await Promise.all([
@@ -94,12 +94,6 @@ export class AuthService {
       throw AppError.conflict('Email already exists!');
     }
 
-    // Generate verification code
-    const verificationCode = this.authUtilsService.generateVerificationCode();
-    const expiresAt = new Date(
-      Date.now() + this.parseExpiryToSeconds(VERIFICATION) * 1000,
-    );
-
     // Hash password
     const saltRounds = 12;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
@@ -117,7 +111,7 @@ export class AuthService {
             fullName,
             password: hashedPassword,
             role: 'customer',
-            verified: false,
+            verified: true,
             status: 'ACTIVE',
             provider: 'local',
           },
@@ -139,23 +133,6 @@ export class AuthService {
         { session },
       );
 
-      // Create email history record for verification email
-      await this.emailHistoryModel.create(
-        [
-          {
-            authId: userId,
-            emailTo: email,
-            emailType: 'verification',
-            subject: 'Verify your email address',
-            messageId: `verify-${userId}-${Date.now()}`,
-            emailStatus: 'pending',
-            ipAddress: ip,
-            userAgent: userAgent,
-          },
-        ],
-        { session },
-      );
-
       // Log user registration activity
       await this.activityLogService.logCreate(
         'authUser',
@@ -165,7 +142,7 @@ export class AuthService {
           fullName,
           role: 'customer',
           status: 'ACTIVE',
-          verified: 'false',
+          verified: 'true',
           provider: 'local',
         },
         { ip, userAgent, actionedBy: userId, device },
@@ -174,54 +151,21 @@ export class AuthService {
 
       await session.commitTransaction();
 
-      // Store verification code in Redis with expiry
-      const verificationKey = `${config.redis_cache_key_prefix}:${AUTH_CONFIG.CACHE_PREFIXES.VERIFICATION_TOKEN}:${email}`;
-      const ttlSeconds = Math.floor((expiresAt.getTime() - Date.now()) / 1000);
-
-      await this.redisService.set(
-        verificationKey,
-        {
-          code: verificationCode,
-          userId,
-          email,
-          expiresAt: expiresAt.toISOString(),
-        },
-        ttlSeconds,
-      );
-
-      // Queue verification email for async processing
+      // Queue welcome email for async processing
       try {
-        await this.emailQueueService.sendVerificationEmail(
-          email,
-          fullName,
-          verificationCode,
-          userId,
-        );
+        await this.emailQueueService.sendWelcomeEmail(email, fullName, userId);
         this.customLogger.log(
-          `User registered successfully: ${email}, verification email queued`,
+          `User registered successfully: ${email}, welcome email queued`,
           'AuthService',
         );
       } catch (error) {
         this.customLogger.error(
-          `Failed to queue verification email for ${email}`,
+          `Failed to queue welcome email for ${email}`,
           error instanceof Error ? error.stack : undefined,
           'AuthService',
         );
-        console.error('Failed to queue verification email:', error);
-        // Update email history status to 'failed'
-        await this.emailHistoryModel.updateMany(
-          {
-            authId: userId,
-            emailType: 'verification',
-            emailStatus: 'pending',
-          },
-          {
-            emailStatus: 'failed',
-            errorMessage:
-              error instanceof Error ? error.message : 'Failed to queue email',
-          },
-        );
-        // Don't throw error, user is created, just email failed
+        console.error('Failed to queue welcome email:', error);
+        // Don't throw error, user is created successfully
       }
     } catch (error) {
       await session.abortTransaction();
@@ -567,21 +511,6 @@ export class AuthService {
         { ip, userAgent, device },
       );
       throw invalidCredentialsError;
-    }
-
-    // Check email verification
-    if (!user.verified) {
-      void this.logLoginAttempt({
-        authId: userId,
-        ip,
-        userAgent,
-        device,
-        success: false,
-        failureReason: 'email_not_verified',
-      });
-      throw AppError.forbidden(
-        'Please verify your email address before logging in',
-      );
     }
 
     // Distributed lock to prevent concurrent login race conditions

@@ -1,7 +1,11 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CustomLoggerService } from '../common/services/custom-logger.service';
@@ -16,9 +20,11 @@ export class UserService {
 
   async create(createUserDto: CreateUserDto) {
     this.customLogger.log('Creating new user', 'UserService');
-    
+
     // Check if user with email already exists
-    const existingUser = await this.userModel.findOne({ email: createUserDto.email });
+    const existingUser = await this.userModel.findOne({
+      email: createUserDto.email,
+    });
     if (existingUser) {
       throw new ConflictException('User with this email already exists');
     }
@@ -37,7 +43,7 @@ export class UserService {
     // Return user without password
     const userObject = user.toObject();
     delete userObject.password;
-    
+
     return userObject;
   }
 
@@ -58,11 +64,11 @@ export class UserService {
       .select('-password')
       .populate('businessId', 'name')
       .exec();
-      
+
     if (!user) {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
-    
+
     return user;
   }
 
@@ -72,7 +78,7 @@ export class UserService {
 
   async update(id: string, updateUserDto: UpdateUserDto) {
     this.customLogger.log(`Updating user with id: ${id}`, 'UserService');
-    
+
     // If password is being updated, hash it
     if (updateUserDto.password) {
       updateUserDto.password = await bcrypt.hash(updateUserDto.password, 10);
@@ -82,26 +88,26 @@ export class UserService {
       .findByIdAndUpdate(
         id,
         { ...updateUserDto, updatedAt: new Date() },
-        { new: true }
+        { new: true },
       )
       .select('-password')
       .exec();
-      
+
     if (!user) {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
-    
+
     return user;
   }
 
   async remove(id: string) {
     this.customLogger.warn(`Removing user with id: ${id}`, 'UserService');
     const user = await this.userModel.findByIdAndDelete(id).exec();
-    
+
     if (!user) {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
-    
+
     return { message: 'User deleted successfully', id };
   }
 }
