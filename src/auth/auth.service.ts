@@ -1046,6 +1046,113 @@ export class AuthService {
   }
 
   /**
+   * Change password for authenticated user
+   */
+  async changePassword(
+    userId: string,
+    oldPassword: string,
+    newPassword: string,
+    meta: { ip: string; userAgent: string },
+  ): Promise<{ message: string }> {
+    const { ip, userAgent } = meta;
+
+    this.customLogger.log(
+      `Password change attempt for user: ${userId}`,
+      'AuthService',
+    );
+
+    // Find user
+    const user = await this.authUserModel.findById(userId);
+
+    if (!user) {
+      throw AppError.notFound('User not found');
+    }
+
+    // Check if user is using OAuth provider
+    if (user.provider !== 'local') {
+      throw AppError.badRequest(
+        `This account uses ${user.provider} authentication. Password cannot be changed.`,
+      );
+    }
+
+    // Verify old password
+    const isOldPasswordValid = await bcrypt.compare(oldPassword, user.password);
+
+    if (!isOldPasswordValid) {
+      this.customLogger.warn(
+        `Password change failed: Invalid old password for user ${userId}`,
+        'AuthService',
+      );
+      throw AppError.badRequest('Current password is incorrect');
+    }
+
+    // Validate new password strength
+    if (!this.authUtilsService.validatePassword(newPassword)) {
+      throw AppError.badRequest('Password does not meet security requirements');
+    }
+
+    // Check if new password is same as old password
+    const isSameAsOld = await bcrypt.compare(newPassword, user.password);
+    if (isSameAsOld) {
+      throw AppError.badRequest(
+        'New password must be different from current password',
+      );
+    }
+
+    // Hash new password
+    const saltRounds = 12;
+    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+
+    // Update password in transaction
+    const session = await this.connection.startSession();
+    session.startTransaction();
+
+    try {
+      await this.authUserModel.findByIdAndUpdate(
+        userId,
+        { password: hashedPassword },
+        { session },
+      );
+
+      // Log password change activity
+      await this.activityLogService.logCustomEvent(
+        'authUser',
+        userId,
+        'password_change',
+        { ip, userAgent, actionedBy: userId },
+        [
+          {
+            fieldName: 'password',
+            oldValue: 'encrypted',
+            newValue: 'encrypted',
+          },
+        ],
+        session,
+      );
+
+      await session.commitTransaction();
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      await session.endSession();
+    }
+
+    // Increment token version to invalidate all existing tokens
+    await this.incrementTokenVersion(userId);
+
+    this.customLogger.log(
+      `Password changed successfully for user ${userId}`,
+      'AuthService',
+    );
+
+    return {
+      message:
+        'Password changed successfully. Please login again with your new password.',
+    };
+  }
+
+  /**
    * Forgot password - Send OTP to user's email
    */
   async forgotPassword(

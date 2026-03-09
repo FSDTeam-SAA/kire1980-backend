@@ -14,8 +14,8 @@ export const AUTH_CONFIG = {
 
   // Token Configuration
   TOKEN_EXPIRY: {
-    ACCESS: '15m', // Short-lived for security (was 1h)
-    REFRESH: '7d',
+    ACCESS: '10d', // Short-lived for security (was 1h)
+    REFRESH: '20d',
     VERIFICATION: '24h',
     PASSWORD_RESET: '1h',
   },

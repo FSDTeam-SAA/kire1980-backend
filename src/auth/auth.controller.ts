@@ -7,6 +7,7 @@ import {
   Query,
   Res,
   Logger,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
@@ -18,6 +19,7 @@ import {
   VerifyResetOtpDto,
   ResetPasswordDto,
 } from './dto/forgot-password.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import {
   GoogleOAuthInitDto,
   GoogleOAuthCallbackDto,
@@ -25,6 +27,7 @@ import {
 import type { Request, Response } from 'express';
 import { CustomLoggerService } from '../common/services/custom-logger.service';
 import { THROTTLER_CONFIG } from '../common/config/throttler.config';
+import { AuthGuard } from '../common/guards/auth.guard';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -412,5 +415,38 @@ export class AuthController {
       success: true,
       ...result,
     };
+  }
+
+  /**
+   * Change password for authenticated user
+   * Requires current password and access token
+   */
+  @UseGuards(AuthGuard)
+  @Throttle({ default: THROTTLER_CONFIG.AUTH })
+  @Post('change-password')
+  async changePassword(
+    @Body() changePasswordDto: ChangePasswordDto,
+    @Req() req: Request,
+  ) {
+    // User info is attached to request by AuthGuard
+    const user = req['user'];
+    const userId = user?.userId ?? user?.authId ?? user?.id;
+
+    this.customLogger.log(
+      `Password change request for user: ${userId}`,
+      'AuthController',
+    );
+
+    const meta = {
+      ip: req.ip || 'unknown',
+      userAgent: req.headers['user-agent'] || 'unknown',
+    };
+
+    return this.authService.changePassword(
+      userId,
+      changePasswordDto.oldPassword,
+      changePasswordDto.newPassword,
+      meta,
+    );
   }
 }
