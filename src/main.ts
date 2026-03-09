@@ -10,7 +10,6 @@ import {
 import { Logger } from 'winston';
 import helmet from 'helmet';
 import { setupSwagger } from './common/config/swagger.config';
-// import { AllExceptionFilter } from './common/filters/all-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {

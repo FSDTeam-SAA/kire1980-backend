@@ -118,9 +118,6 @@ export class BusinessInfo extends Document {
   @Prop({ type: [Types.ObjectId], ref: 'AuthUser', default: [] })
   staffIds!: Types.ObjectId[]; // References to staff members
 
-  @Prop({ type: [Types.ObjectId], ref: 'Job', default: [] })
-  jobs!: Types.ObjectId[]; // Jobs posted by this business
-
   @Prop({ type: [Types.ObjectId], ref: 'Review', default: [] })
   reviews!: Types.ObjectId[]; // Reviews of this business
 

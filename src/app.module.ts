@@ -2,10 +2,8 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-// import { BlogModule } from './blog/blog.module';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
-import { JobModule } from './job/job.module';
 import { BusinessModule } from './business/business.module';
 import { ServiceModule } from './service/service.module';
 import { DatabaseModule } from './database/database.module';
@@ -38,7 +36,6 @@ import { LoggerModule } from './common/modules/logger.module';
     // BlogModule,
     AuthModule,
     UserModule,
-    JobModule,
     BusinessModule,
     ServiceModule,
   ],

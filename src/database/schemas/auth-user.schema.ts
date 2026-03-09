@@ -75,9 +75,6 @@ export class AuthUser extends Document {
   @Prop({ type: [Types.ObjectId], ref: 'Subscription', default: [] })
   subscriptions!: Types.ObjectId[];
 
-  @Prop({ type: [Types.ObjectId], ref: 'Job', default: [] })
-  jobs!: Types.ObjectId[];
-
   @Prop({ default: () => new Date() })
   createdAt!: Date;
 

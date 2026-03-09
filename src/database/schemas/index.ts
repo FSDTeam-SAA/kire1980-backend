@@ -4,7 +4,6 @@ export * from './user-profile.schema';
 export * from './login-history.schema';
 export * from './email-history.schema';
 export * from './activity-log-event.schema';
-export * from './job.schema';
 export * from './subscription-plan.schema';
 export * from './subscription.schema';
 export * from './payment.schema';
