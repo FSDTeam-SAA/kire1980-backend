@@ -1044,4 +1044,300 @@ export class AuthService {
       'AuthService.incrementTokenVersion',
     );
   }
+
+  /**
+   * Forgot password - Send OTP to user's email
+   */
+  async forgotPassword(
+    email: string,
+    meta: { ip: string; userAgent: string },
+  ): Promise<{ message: string }> {
+    const { ip, userAgent } = meta;
+
+    this.customLogger.log(
+      `Password reset request for email: ${email}`,
+      'AuthService',
+    );
+
+    const { PASSWORD_RESET_MAX_ATTEMPTS, PASSWORD_RESET_WINDOW_MS } =
+      AUTH_CONFIG.RATE_LIMIT;
+    const { PASSWORD_RESET } = AUTH_CONFIG.TOKEN_EXPIRY;
+
+    // Check rate limiting
+    await this.authUtilsService.checkRateLimit(
+      `password_reset:${email}`,
+      PASSWORD_RESET_MAX_ATTEMPTS,
+      PASSWORD_RESET_WINDOW_MS,
+    );
+
+    // Find user by email
+    const user = await this.authUserModel.findOne({ email });
+
+    if (!user) {
+      // Don't reveal if user exists or not
+      this.customLogger.warn(
+        `Password reset requested for non-existent email: ${email}`,
+        'AuthService',
+      );
+      // Return success message to prevent user enumeration
+      return {
+        message:
+          'If an account with that email exists, a password reset OTP has been sent.',
+      };
+    }
+
+    // Check if user is using OAuth provider
+    if (user.provider !== 'local') {
+      throw AppError.badRequest(
+        `This account uses ${user.provider} authentication. Please login using ${user.provider}.`,
+      );
+    }
+
+    // Generate OTP
+    const otp = this.authUtilsService.generateVerificationCode();
+    const expiresAt = new Date(
+      Date.now() + this.parseExpiryToSeconds(PASSWORD_RESET) * 1000,
+    );
+
+    // Store OTP in Redis with expiry
+    const resetKey = `${config.redis_cache_key_prefix}:${AUTH_CONFIG.CACHE_PREFIXES.PASSWORD_RESET_TOKEN}:${email}`;
+    const ttlSeconds = Math.floor((expiresAt.getTime() - Date.now()) / 1000);
+
+    await this.redisService.set(
+      resetKey,
+      {
+        otp,
+        userId: user._id.toString(),
+        email,
+        expiresAt: expiresAt.toISOString(),
+      },
+      ttlSeconds,
+    );
+
+    // Create email history record
+    await this.emailHistoryModel.create({
+      authId: user._id.toString(),
+      emailTo: email,
+      emailType: 'password_reset',
+      subject: 'Reset your password',
+      messageId: `reset-${user._id.toString()}-${Date.now()}`,
+      emailStatus: 'pending',
+      ipAddress: ip,
+      userAgent: userAgent,
+    });
+
+    // Send password reset email
+    try {
+      await this.emailQueueService.sendPasswordResetEmail(
+        email,
+        user.fullName,
+        otp,
+        user._id.toString(),
+      );
+
+      this.customLogger.log(
+        `Password reset OTP sent to: ${email}`,
+        'AuthService',
+      );
+    } catch (error) {
+      this.customLogger.error(
+        `Failed to send password reset email to ${email}`,
+        error instanceof Error ? error.stack : undefined,
+        'AuthService',
+      );
+
+      // Update email history status to 'failed'
+      await this.emailHistoryModel.updateOne(
+        {
+          authId: user._id.toString(),
+          emailType: 'password_reset',
+          emailStatus: 'pending',
+        },
+        {
+          emailStatus: 'failed',
+          errorMessage:
+            error instanceof Error ? error.message : 'Failed to send email',
+        },
+      );
+
+      throw AppError.badRequest('Failed to send password reset email');
+    }
+
+    return {
+      message:
+        'If an account with that email exists, a password reset OTP has been sent.',
+    };
+  }
+
+  /**
+   * Verify password reset OTP and return a reset token
+   */
+  async verifyResetOtp(
+    email: string,
+    otp: string,
+  ): Promise<{ message: string; valid: boolean; resetToken: string }> {
+    this.customLogger.log(
+      `OTP verification attempt for password reset: ${email}`,
+      'AuthService',
+    );
+
+    const resetKey = `${config.redis_cache_key_prefix}:${AUTH_CONFIG.CACHE_PREFIXES.PASSWORD_RESET_TOKEN}:${email}`;
+
+    // Get OTP data from Redis
+    const resetData = await this.redisService.get<{
+      otp: string;
+      userId: string;
+      email: string;
+      expiresAt: string;
+    }>(resetKey);
+
+    if (!resetData) {
+      this.customLogger.warn(
+        `Password reset OTP expired or not found for ${email}`,
+        'AuthService',
+      );
+      throw AppError.badRequest(
+        'OTP expired or invalid. Please request a new password reset.',
+      );
+    }
+
+    // Validate OTP
+    if (resetData.otp !== otp) {
+      this.customLogger.warn(
+        `Invalid password reset OTP for ${email}`,
+        'AuthService',
+      );
+      throw AppError.badRequest('Invalid OTP');
+    }
+
+    // Generate reset token (15 minutes validity)
+    const resetToken = this.authUtilsService.generateSecureId();
+    const resetTokenKey = `${config.redis_cache_key_prefix}:reset_token:${resetToken}`;
+    const resetTokenTTL = 15 * 60; // 15 minutes in seconds
+
+    // Store reset token in Redis
+    await this.redisService.set(
+      resetTokenKey,
+      {
+        userId: resetData.userId,
+        email: resetData.email,
+        createdAt: new Date().toISOString(),
+      },
+      resetTokenTTL,
+    );
+
+    // Delete the OTP as it's no longer needed
+    await this.redisService.del(resetKey);
+
+    this.customLogger.log(
+      `Password reset OTP verified successfully for ${email}, reset token issued`,
+      'AuthService',
+    );
+
+    return {
+      message: 'OTP verified successfully. You can now reset your password.',
+      valid: true,
+      resetToken,
+    };
+  }
+
+  /**
+   * Reset password with reset token
+   */
+  async resetPassword(
+    resetToken: string,
+    newPassword: string,
+    meta: { ip: string; userAgent: string },
+  ): Promise<{ message: string }> {
+    const { ip, userAgent } = meta;
+
+    this.customLogger.log(`Password reset attempt with token`, 'AuthService');
+
+    // Verify reset token
+    const resetTokenKey = `${config.redis_cache_key_prefix}:reset_token:${resetToken}`;
+
+    const tokenData = await this.redisService.get<{
+      userId: string;
+      email: string;
+      createdAt: string;
+    }>(resetTokenKey);
+
+    if (!tokenData) {
+      this.customLogger.warn(`Invalid or expired reset token`, 'AuthService');
+      throw AppError.badRequest(
+        'Reset token expired or invalid. Please verify your OTP again.',
+      );
+    }
+
+    // Validate new password strength
+    if (!this.authUtilsService.validatePassword(newPassword)) {
+      throw AppError.badRequest('Password does not meet security requirements');
+    }
+
+    // Find user
+    const user = await this.authUserModel.findById(tokenData.userId);
+
+    if (!user) {
+      this.customLogger.warn(
+        `User not found for reset token: ${tokenData.userId}`,
+        'AuthService',
+      );
+      throw AppError.notFound('User not found');
+    }
+
+    // Hash new password
+    const saltRounds = 12;
+    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+
+    // Update password in transaction
+    const session = await this.connection.startSession();
+    session.startTransaction();
+
+    try {
+      await this.authUserModel.findByIdAndUpdate(
+        user._id,
+        { password: hashedPassword },
+        { session },
+      );
+
+      // Log password change activity
+      await this.activityLogService.logCustomEvent(
+        'authUser',
+        user._id.toString(),
+        'password_change',
+        { ip, userAgent, actionedBy: user._id.toString() },
+        [
+          {
+            fieldName: 'password',
+            oldValue: 'encrypted',
+            newValue: 'encrypted',
+          },
+        ],
+        session,
+      );
+
+      await session.commitTransaction();
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      await session.endSession();
+    }
+
+    // Delete reset token from Redis (single use)
+    await this.redisService.del(resetTokenKey);
+
+    // Increment token version to invalidate all existing tokens
+    await this.incrementTokenVersion(user._id.toString());
+
+    this.customLogger.log(
+      `Password reset successful for ${tokenData.email}`,
+      'AuthService',
+    );
+
+    return {
+      message:
+        'Password reset successful. Please login with your new password.',
+    };
+  }
 }

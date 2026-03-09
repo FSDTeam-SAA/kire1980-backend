@@ -9,11 +9,15 @@ import {
   Logger,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { Throttle, SkipThrottle } from '@nestjs/throttler';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { GoogleOAuthService } from './services/google-oauth.service';
 import { CreateAuthDto } from './dto/create-auth.dto';
-// import { UpdateAuthDto } from './dto/update-auth.dto';
+import {
+  ForgotPasswordDto,
+  VerifyResetOtpDto,
+  ResetPasswordDto,
+} from './dto/forgot-password.dto';
 import {
   GoogleOAuthInitDto,
   GoogleOAuthCallbackDto,
@@ -54,6 +58,71 @@ export class AuthController {
           : req.headers['sec-ch-ua-platform']),
     };
     return this.authService.create(payload, meta);
+  }
+
+  // ==========================================
+  // Password Reset Endpoints
+  // ==========================================
+
+  /**
+   * Forgot Password - Send OTP to user's email
+   * Rate limited to 3 requests per hour
+   */
+  @Throttle({ default: THROTTLER_CONFIG.AUTH })
+  @Post('forgot-password')
+  async forgotPassword(
+    @Body() forgotPasswordDto: ForgotPasswordDto,
+    @Req() req: Request,
+  ) {
+    this.customLogger.log(
+      `Forgot password request for email: ${forgotPasswordDto.email}`,
+      'AuthController',
+    );
+    const meta = {
+      ip: req.ip || 'unknown',
+      userAgent: req.headers['user-agent'] || 'unknown',
+    };
+    return this.authService.forgotPassword(forgotPasswordDto.email, meta);
+  }
+
+  /**
+   * Verify password reset OTP
+   */
+  @Throttle({ default: THROTTLER_CONFIG.AUTH })
+  @Post('verify-reset-otp')
+  async verifyResetOtp(@Body() verifyOtpDto: VerifyResetOtpDto) {
+    this.customLogger.log(
+      `OTP verification request for password reset: ${verifyOtpDto.email}`,
+      'AuthController',
+    );
+    return this.authService.verifyResetOtp(
+      verifyOtpDto.email,
+      verifyOtpDto.otp,
+    );
+  }
+
+  /**
+   * Reset password with reset token
+   */
+  @Throttle({ default: THROTTLER_CONFIG.AUTH })
+  @Post('reset-password')
+  async resetPassword(
+    @Body() resetPasswordDto: ResetPasswordDto,
+    @Req() req: Request,
+  ) {
+    this.customLogger.log(
+      `Password reset attempt with token`,
+      'AuthController',
+    );
+    const meta = {
+      ip: req.ip || 'unknown',
+      userAgent: req.headers['user-agent'] || 'unknown',
+    };
+    return this.authService.resetPassword(
+      resetPasswordDto.resetToken,
+      resetPasswordDto.newPassword,
+      meta,
+    );
   }
 
   // ==========================================
