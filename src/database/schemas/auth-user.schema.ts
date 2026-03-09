@@ -3,17 +3,38 @@ import { Document, Types } from 'mongoose';
 
 @Schema({ collection: 'auth_users' })
 export class AuthUser extends Document {
+  @Prop({ required: true })
+  fullName!: string;
+
+  @Prop()
+  phoneNumber?: string;
+
+  @Prop()
+  country?: string;
+
+  @Prop()
+  city?: string;
+
+  @Prop()
+  postalCode?: number;
+
+  @Prop()
+  sector?: string;
+
   @Prop({ required: true, unique: true })
   email!: string;
 
   @Prop({ required: true })
   password!: string;
 
-  @Prop({ required: true, unique: true })
-  username!: string;
-
-  @Prop({ enum: ['USER', 'ADMIN', 'MODERATOR', 'SUPERADMIN'], default: 'USER' })
+  @Prop({ enum: ['customer', 'businessowner', 'admin'], default: 'customer' })
   role!: string;
+
+  @Prop()
+  avatar?: string;
+
+  @Prop({ type: Types.ObjectId, ref: 'BusinessInfo', default: null })
+  businessId?: Types.ObjectId;
 
   @Prop({ default: false })
   verified!: boolean;

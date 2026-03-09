@@ -6,6 +6,8 @@ import {
   Patch,
   Param,
   Delete,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { UserService } from './user.service';
@@ -29,6 +31,7 @@ export class UserController {
   @ApiOperation({ summary: 'Create a new user' })
   @ApiResponseDecorator(201, 'User created successfully', User)
   @Post()
+  @HttpCode(HttpStatus.CREATED)
   create(@Body() createUserDto: CreateUserDto) {
     return this.userService.create(createUserDto);
   }
@@ -44,20 +47,21 @@ export class UserController {
   @ApiResponseDecorator(200, 'User retrieved successfully', User)
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.userService.findOne(+id);
+    return this.userService.findOne(id);
   }
 
   @ApiOperation({ summary: 'Update user by ID' })
   @ApiResponseDecorator(200, 'User updated successfully', User)
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    return this.userService.update(+id, updateUserDto);
+    return this.userService.update(id, updateUserDto);
   }
 
   @ApiOperation({ summary: 'Delete user by ID' })
   @ApiResponseDecorator(200, 'User deleted successfully')
   @Delete(':id')
+  @HttpCode(HttpStatus.OK)
   remove(@Param('id') id: string) {
-    return this.userService.remove(+id);
+    return this.userService.remove(id);
   }
 }

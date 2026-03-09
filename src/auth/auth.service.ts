@@ -53,11 +53,11 @@ export class AuthService {
     payload: CreateAuthDto,
     meta: { ip: string; userAgent: string; device?: string },
   ): Promise<void> {
-    const { email, password, username } = payload;
+    const { email, password, fullName } = payload;
     const { ip, userAgent, device } = meta;
 
     this.customLogger.log(
-      `Registration attempt for email: ${email}, username: ${username}`,
+      `Registration attempt for email: ${email}, fullName: ${fullName}`,
       'AuthService',
     );
 
@@ -83,27 +83,15 @@ export class AuthService {
       throw AppError.badRequest('Password does not meet security requirements');
     }
 
-    // Check if user already exists with email or username
-    const existingUser = await this.mongooseHelper.findUserByEmailOrUsername(
-      email,
-      username,
-    );
+    // Check if user already exists with email
+    const existingUser = await this.authUserModel.findOne({ email });
 
     if (existingUser) {
-      if (existingUser.email === email) {
-        this.customLogger.warn(
-          `Registration failed: Email already exists - ${email}`,
-          'AuthService',
-        );
-        throw AppError.conflict('Email already exists!');
-      }
-      if (existingUser.username === username) {
-        this.customLogger.warn(
-          `Registration failed: Username already exists - ${username}`,
-          'AuthService',
-        );
-        throw AppError.conflict('Username already exists!');
-      }
+      this.customLogger.warn(
+        `Registration failed: Email already exists - ${email}`,
+        'AuthService',
+      );
+      throw AppError.conflict('Email already exists!');
     }
 
     // Generate verification code
@@ -126,9 +114,9 @@ export class AuthService {
         [
           {
             email,
-            username,
+            fullName,
             password: hashedPassword,
-            role: 'USER',
+            role: 'customer',
             verified: false,
             status: 'ACTIVE',
             provider: 'local',
@@ -174,8 +162,8 @@ export class AuthService {
         userId,
         {
           email,
-          username,
-          role: 'USER',
+          fullName,
+          role: 'customer',
           status: 'ACTIVE',
           verified: 'false',
           provider: 'local',
@@ -205,7 +193,7 @@ export class AuthService {
       try {
         await this.emailQueueService.sendVerificationEmail(
           email,
-          username,
+          fullName,
           verificationCode,
           userId,
         );
@@ -339,7 +327,7 @@ export class AuthService {
     try {
       await this.emailQueueService.sendWelcomeEmail(
         email,
-        user.username,
+        user.fullName,
         user._id.toString(),
       );
       this.customLogger.log(
@@ -429,7 +417,7 @@ export class AuthService {
     try {
       await this.emailQueueService.sendVerificationEmail(
         email,
-        user.username,
+        user.fullName,
         verificationCode,
         user._id.toString(),
       );
@@ -735,7 +723,7 @@ export class AuthService {
         user: {
           id: userId,
           email: user.email,
-          username: user.username,
+          fullName: user.fullName,
           role: user.role,
           verified: user.verified,
         },

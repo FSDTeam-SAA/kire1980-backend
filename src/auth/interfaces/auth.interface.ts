@@ -3,10 +3,9 @@
  */
 
 export enum UserRole {
-  CUSTOMER = 'CUSTOMER',
-  MODERATOR = 'MODERATOR',
-  ADMIN = 'ADMIN',
-  SUPER_ADMIN = 'SUPER_ADMIN',
+  CUSTOMER = 'customer',
+  BUSINESS_OWNER = 'businessowner',
+  ADMIN = 'admin',
 }
 
 /**
@@ -66,7 +65,7 @@ export interface ILoginResponse {
   user: {
     id: string;
     email: string;
-    username: string;
+    fullName: string;
     role: string;
     verified: boolean;
   };

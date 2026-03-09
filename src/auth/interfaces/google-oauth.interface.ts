@@ -80,7 +80,7 @@ export interface IGoogleOAuthLoginResponse {
   user: {
     id: string;
     email: string;
-    username: string;
+    fullName: string;
     role: string;
     verified: boolean;
     provider: string;

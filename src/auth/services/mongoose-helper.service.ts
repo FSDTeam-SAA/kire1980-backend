@@ -23,12 +23,10 @@ export class MongooseHelper {
   ) {}
 
   /**
-   * Find user by email or username
+   * Find user by email
    */
-  async findUserByEmailOrUsername(email?: string, username?: string) {
-    return this.authUserModel.findOne({
-      $or: [{ email }, { username }],
-    });
+  async findUserByEmail(email: string) {
+    return this.authUserModel.findOne({ email });
   }
 
   /**
@@ -51,7 +49,7 @@ export class MongooseHelper {
    */
   async createUserWithSecurityAndProfile(
     email: string,
-    username: string,
+    fullName: string,
     hashedPassword: string,
     userAgent?: string,
     ipAddress?: string,
@@ -65,9 +63,9 @@ export class MongooseHelper {
         [
           {
             email,
-            username,
+            fullName,
             password: hashedPassword,
-            role: 'USER',
+            role: 'customer',
             verified: false,
             status: 'ACTIVE',
             provider: 'local',
