@@ -10,3 +10,4 @@ export * from './payment.schema';
 export * from './invoice.schema';
 export * from './business-info.schema';
 export * from './service.schema';
+export * from './review-rating.schema';
