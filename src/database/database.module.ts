@@ -5,6 +5,8 @@ import { MongooseService } from './mongoose.service';
 import {
   AuthUser,
   AuthUserSchema,
+  BusinessInfo,
+  BusinessInfoSchema,
   AuthSecurity,
   AuthSecuritySchema,
   UserProfile,
@@ -44,6 +46,7 @@ import {
     }),
     MongooseModule.forFeature([
       { name: AuthUser.name, schema: AuthUserSchema },
+      { name: BusinessInfo.name, schema: BusinessInfoSchema },
       { name: AuthSecurity.name, schema: AuthSecuritySchema },
       { name: UserProfile.name, schema: UserProfileSchema },
       { name: LoginHistory.name, schema: LoginHistorySchema },

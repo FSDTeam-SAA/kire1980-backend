@@ -15,6 +15,10 @@ interface AppConfig {
   google_client_id: string;
   google_client_secret: string;
   google_redirect_uri: string;
+  // Cloudinary
+  cloudinary_cloud_name: string;
+  cloudinary_api_key: string;
+  cloudinary_api_secret: string;
 }
 
 const config: AppConfig = {
@@ -24,9 +28,9 @@ const config: AppConfig = {
     process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || '',
   redis_cache_key_prefix: process.env.REDIS_CACHE_KEY_PREFIX || 'app',
   node_env: process.env.NODE_ENV || 'development',
-  port: parseInt(process.env.PORT || '5000', 10),
+  port: Number.parseInt(process.env.PORT || '5000', 10),
   email_host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-  email_port: parseInt(process.env.EMAIL_PORT || '587', 10),
+  email_port: Number.parseInt(process.env.EMAIL_PORT || '587', 10),
   email_user: process.env.EMAIL_USER || '',
   email_pass: process.env.EMAIL_PASS || '',
   email_from: process.env.EMAIL_FROM || process.env.EMAIL_USER || '',
@@ -34,6 +38,10 @@ const config: AppConfig = {
   google_client_id: process.env.GOOGLE_CLIENT_ID || '',
   google_client_secret: process.env.GOOGLE_CLIENT_SECRET || '',
   google_redirect_uri: process.env.GOOGLE_REDIRECT_URI || '',
+  // Cloudinary
+  cloudinary_cloud_name: process.env.CLOUDINARY_CLOUD_NAME || '',
+  cloudinary_api_key: process.env.CLOUDINARY_API_KEY || '',
+  cloudinary_api_secret: process.env.CLOUDINARY_API_SECRET || '',
 };
 
 export default config;

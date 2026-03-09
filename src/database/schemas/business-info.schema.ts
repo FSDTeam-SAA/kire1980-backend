@@ -48,6 +48,21 @@ export class GalleryImage extends Document {
   altText?: string; // For SEO and accessibility
 }
 
+@Schema({ _id: false })
+export class SocialMediaLinks extends Document {
+  @Prop()
+  linkedin?: string;
+
+  @Prop()
+  facebook?: string;
+
+  @Prop()
+  instagram?: string;
+
+  @Prop()
+  twitter?: string;
+}
+
 // Main Business schema
 @Schema({ collection: 'business_info', timestamps: true })
 export class BusinessInfo extends Document {
@@ -87,7 +102,10 @@ export class BusinessInfo extends Document {
   @Prop()
   description?: string;
 
-  @Prop({ enum: BusinessVerification, default: BusinessVerification.UNVERIFIED })
+  @Prop({
+    enum: BusinessVerification,
+    default: BusinessVerification.UNVERIFIED,
+  })
   verification!: string;
 
   @Prop({ type: [OpeningHour], default: [] })
@@ -109,13 +127,8 @@ export class BusinessInfo extends Document {
   @Prop()
   website?: string; // Business website
 
-  @Prop()
-  socialMediaLinks?: {
-    linkedin?: string;
-    facebook?: string;
-    instagram?: string;
-    twitter?: string;
-  };
+  @Prop({ type: SocialMediaLinks, default: null })
+  socialMediaLinks?: SocialMediaLinks;
 
   @Prop({ default: () => new Date() })
   createdAt!: Date;

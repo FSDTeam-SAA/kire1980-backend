@@ -4,6 +4,7 @@ import { ActivityLogService } from './services/activity-log.service';
 import { EmailService } from './services/email.service';
 import { RedisService } from './services/redis.service';
 import { CustomLoggerService } from './services/custom-logger.service';
+import { CloudinaryService } from './services/cloudinary.service';
 import { QueueModule } from './modules/queue.module';
 import { DatabaseModule } from '../database/database.module';
 import {
@@ -27,12 +28,14 @@ import {
     EmailService,
     RedisService,
     CustomLoggerService,
+    CloudinaryService,
   ],
   exports: [
     ActivityLogService,
     EmailService,
     RedisService,
     CustomLoggerService,
+    CloudinaryService,
     MongooseModule,
     QueueModule,
   ],
