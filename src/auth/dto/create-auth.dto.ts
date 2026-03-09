@@ -5,6 +5,8 @@ import {
   IsOptional,
   IsString,
   MinLength,
+  IsIn,
+  NotEquals,
 } from 'class-validator';
 
 export class CreateAuthDto {
@@ -25,4 +27,9 @@ export class CreateAuthDto {
   @IsEmail()
   @IsNotEmpty()
   email: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['customer', 'businessowner'], { message: 'role must be either customer or businessowner' })
+  role?: string;
 }
