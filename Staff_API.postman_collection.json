@@ -1,0 +1,548 @@
+{
+  "info": {
+    "name": "Staff Member API",
+    "_postman_id": "staff-member-api-collection",
+    "description": "Complete API collection for Staff Member management endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{authToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Create Staff Member",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{authToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "firstName",
+              "value": "John",
+              "type": "text"
+            },
+            {
+              "key": "lastName",
+              "value": "Smith",
+              "type": "text"
+            },
+            {
+              "key": "email",
+              "value": "john.smith@example.com",
+              "type": "text"
+            },
+            {
+              "key": "phoneNumber",
+              "value": "+1234567890",
+              "type": "text"
+            },
+            {
+              "key": "businessId",
+              "value": "{{businessId}}",
+              "type": "text"
+            },
+            {
+              "key": "serviceIds",
+              "value": "[\"{{serviceId}}\"]",
+              "type": "text",
+              "description": "JSON array of service IDs"
+            },
+            {
+              "key": "description",
+              "value": "Experienced hair stylist with 10 years of expertise in modern cuts and styling",
+              "type": "text"
+            },
+            {
+              "key": "avatar",
+              "type": "file",
+              "description": "Staff member avatar image (jpg, jpeg, png, gif, webp - max 5MB)"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/staff",
+          "host": ["{{baseUrl}}"],
+          "path": ["staff"]
+        },
+        "description": "Create a new staff member for a business. Requires authentication and business ownership. Supports avatar image upload."
+      },
+      "response": [
+        {
+          "name": "Success",
+          "originalRequest": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": []
+            },
+            "url": {
+              "raw": "{{baseUrl}}/staff",
+              "host": ["{{baseUrl}}"],
+              "path": ["staff"]
+            }
+          },
+          "status": "Created",
+          "code": 201,
+          "_postman_previewlanguage": "json",
+          "header": [],
+          "cookie": [],
+          "body": "{\n  \"_id\": \"65fb222222222222222222aa\",\n  \"firstName\": \"John\",\n  \"lastName\": \"Smith\",\n  \"email\": \"john.smith@example.com\",\n  \"phoneNumber\": \"+1234567890\",\n  \"businessId\": \"65f1234567890abcdef12345\",\n  \"serviceIds\": [\"65f9876543210fedcba98765\"],\n  \"description\": \"Experienced hair stylist\",\n  \"avatar\": {\n    \"url\": \"https://res.cloudinary.com/.../avatar.jpg\",\n    \"publicId\": \"staff-avatars/abc123\",\n    \"uploadedAt\": \"2026-03-10T10:00:00.000Z\"\n  },\n  \"isActive\": true,\n  \"isDeleted\": false,\n  \"createdAt\": \"2026-03-10T10:00:00.000Z\",\n  \"updatedAt\": \"2026-03-10T10:00:00.000Z\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Get All Staff Members",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/staff?page=1&limit=10",
+          "host": ["{{baseUrl}}"],
+          "path": ["staff"],
+          "query": [
+            {
+              "key": "page",
+              "value": "1",
+              "description": "Page number (default: 1)"
+            },
+            {
+              "key": "limit",
+              "value": "10",
+              "description": "Items per page (default: 10)"
+            },
+            {
+              "key": "businessId",
+              "value": "{{businessId}}",
+              "description": "Filter by business ID",
+              "disabled": true
+            },
+            {
+              "key": "serviceId",
+              "value": "{{serviceId}}",
+              "description": "Filter by service ID",
+              "disabled": true
+            },
+            {
+              "key": "isActive",
+              "value": "true",
+              "description": "Filter by active status (true/false)",
+              "disabled": true
+            }
+          ]
+        },
+        "description": "Get all staff members with pagination. Can be filtered by businessId, serviceId, or active status."
+      },
+      "response": [
+        {
+          "name": "Success",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/staff?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["staff"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [],
+          "cookie": [],
+          "body": "{\n  \"data\": [\n    {\n      \"_id\": \"65fb222222222222222222aa\",\n      \"firstName\": \"John\",\n      \"lastName\": \"Smith\",\n      \"email\": \"john.smith@example.com\",\n      \"phoneNumber\": \"+1234567890\",\n      \"businessId\": {\n        \"_id\": \"65f1234567890abcdef12345\",\n        \"businessName\": \"Best Salon\"\n      },\n      \"serviceIds\": [\n        {\n          \"_id\": \"65f9876543210fedcba98765\",\n          \"serviceName\": \"Hair Cut\"\n        }\n      ],\n      \"description\": \"Experienced hair stylist\",\n      \"avatar\": {\n        \"url\": \"https://res.cloudinary.com/.../avatar.jpg\"\n      },\n      \"isActive\": true,\n      \"createdAt\": \"2026-03-10T10:00:00.000Z\",\n      \"updatedAt\": \"2026-03-10T10:00:00.000Z\"\n    }\n  ],\n  \"meta\": {\n    \"total\": 1,\n    \"page\": 1,\n    \"limit\": 10,\n    \"totalPages\": 1\n  }\n}"
+        }
+      ]
+    },
+    {
+      "name": "Get Staff by Business",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/staff/business/{{businessId}}?page=1&limit=10",
+          "host": ["{{baseUrl}}"],
+          "path": ["staff", "business", "{{businessId}}"],
+          "query": [
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            }
+          ]
+        },
+        "description": "Get all staff members for a specific business with pagination."
+      },
+      "response": []
+    },
+    {
+      "name": "Get Active Staff by Business",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/staff?businessId={{businessId}}&isActive=true&page=1&limit=10",
+          "host": ["{{baseUrl}}"],
+          "path": ["staff"],
+          "query": [
+            {
+              "key": "businessId",
+              "value": "{{businessId}}"
+            },
+            {
+              "key": "isActive",
+              "value": "true"
+            },
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            }
+          ]
+        },
+        "description": "Get all active staff members for a specific business."
+      },
+      "response": []
+    },
+    {
+      "name": "Get Staff by Service",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/staff?serviceId={{serviceId}}&page=1&limit=10",
+          "host": ["{{baseUrl}}"],
+          "path": ["staff"],
+          "query": [
+            {
+              "key": "serviceId",
+              "value": "{{serviceId}}"
+            },
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            }
+          ]
+        },
+        "description": "Get all staff members assigned to a specific service."
+      },
+      "response": []
+    },
+    {
+      "name": "Get Staff Member by ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/staff/{{staffId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["staff", "{{staffId}}"]
+        },
+        "description": "Get a specific staff member by ID with populated business and service details."
+      },
+      "response": [
+        {
+          "name": "Success",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/staff/65fb222222222222222222aa",
+              "host": ["{{baseUrl}}"],
+              "path": ["staff", "65fb222222222222222222aa"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [],
+          "cookie": [],
+          "body": "{\n  \"_id\": \"65fb222222222222222222aa\",\n  \"firstName\": \"John\",\n  \"lastName\": \"Smith\",\n  \"email\": \"john.smith@example.com\",\n  \"phoneNumber\": \"+1234567890\",\n  \"businessId\": {\n    \"_id\": \"65f1234567890abcdef12345\",\n    \"businessName\": \"Best Salon\",\n    \"businessEmail\": \"info@bestsalon.com\",\n    \"phoneNumber\": \"+1987654321\"\n  },\n  \"serviceIds\": [\n    {\n      \"_id\": \"65f9876543210fedcba98765\",\n      \"serviceName\": \"Hair Cut\",\n      \"category\": \"Hair\",\n      \"price\": 50\n    }\n  ],\n  \"description\": \"Experienced hair stylist\",\n  \"avatar\": {\n    \"url\": \"https://res.cloudinary.com/.../avatar.jpg\"\n  },\n  \"isActive\": true,\n  \"createdAt\": \"2026-03-10T10:00:00.000Z\",\n  \"updatedAt\": \"2026-03-10T10:00:00.000Z\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Update Staff Member",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{authToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "PATCH",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "firstName",
+              "value": "John",
+              "type": "text",
+              "disabled": true
+            },
+            {
+              "key": "lastName",
+              "value": "Smith",
+              "type": "text",
+              "disabled": true
+            },
+            {
+              "key": "email",
+              "value": "john.smith.new@example.com",
+              "type": "text",
+              "disabled": true
+            },
+            {
+              "key": "phoneNumber",
+              "value": "+1234567891",
+              "type": "text",
+              "disabled": true
+            },
+            {
+              "key": "serviceIds",
+              "value": "[\"{{serviceId}}\", \"65f1111111111111111111cc\"]",
+              "type": "text",
+              "description": "JSON array of service IDs"
+            },
+            {
+              "key": "description",
+              "value": "Updated description: Senior hair stylist with 12 years of expertise",
+              "type": "text"
+            },
+            {
+              "key": "isActive",
+              "value": "true",
+              "type": "text",
+              "disabled": true
+            },
+            {
+              "key": "avatar",
+              "type": "file",
+              "description": "New avatar image (optional)"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/staff/{{staffId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["staff", "{{staffId}}"]
+        },
+        "description": "Update staff member details. Requires authentication and business ownership. Can update avatar image."
+      },
+      "response": [
+        {
+          "name": "Success",
+          "originalRequest": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": []
+            },
+            "url": {
+              "raw": "{{baseUrl}}/staff/65fb222222222222222222aa",
+              "host": ["{{baseUrl}}"],
+              "path": ["staff", "65fb222222222222222222aa"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [],
+          "cookie": [],
+          "body": "{\n  \"_id\": \"65fb222222222222222222aa\",\n  \"firstName\": \"John\",\n  \"lastName\": \"Smith\",\n  \"email\": \"john.smith@example.com\",\n  \"phoneNumber\": \"+1234567891\",\n  \"businessId\": \"65f1234567890abcdef12345\",\n  \"serviceIds\": [\"65f9876543210fedcba98765\", \"65f1111111111111111111cc\"],\n  \"description\": \"Updated description\",\n  \"isActive\": true,\n  \"updatedAt\": \"2026-03-10T11:30:00.000Z\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Toggle Staff Active Status",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{authToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "PATCH",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/staff/{{staffId}}/toggle-status",
+          "host": ["{{baseUrl}}"],
+          "path": ["staff", "{{staffId}}", "toggle-status"]
+        },
+        "description": "Toggle staff member active/inactive status. Requires authentication and business ownership."
+      },
+      "response": [
+        {
+          "name": "Activated",
+          "originalRequest": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/staff/65fb222222222222222222aa/toggle-status",
+              "host": ["{{baseUrl}}"],
+              "path": ["staff", "65fb222222222222222222aa", "toggle-status"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [],
+          "cookie": [],
+          "body": "{\n  \"message\": \"Staff member activated successfully\",\n  \"isActive\": true\n}"
+        },
+        {
+          "name": "Deactivated",
+          "originalRequest": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/staff/65fb222222222222222222aa/toggle-status",
+              "host": ["{{baseUrl}}"],
+              "path": ["staff", "65fb222222222222222222aa", "toggle-status"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [],
+          "cookie": [],
+          "body": "{\n  \"message\": \"Staff member deactivated successfully\",\n  \"isActive\": false\n}"
+        }
+      ]
+    },
+    {
+      "name": "Delete Staff Member",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{authToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/staff/{{staffId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["staff", "{{staffId}}"]
+        },
+        "description": "Delete (soft delete) a staff member. Requires authentication and business ownership. Also deletes avatar from Cloudinary."
+      },
+      "response": [
+        {
+          "name": "Success",
+          "originalRequest": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/staff/65fb222222222222222222aa",
+              "host": ["{{baseUrl}}"],
+              "path": ["staff", "65fb222222222222222222aa"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [],
+          "cookie": [],
+          "body": "{\n  \"message\": \"Staff member deleted successfully\"\n}"
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [""]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [""]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "your_jwt_token_here",
+      "type": "string"
+    },
+    {
+      "key": "businessId",
+      "value": "65f1234567890abcdef12345",
+      "type": "string"
+    },
+    {
+      "key": "serviceId",
+      "value": "65f9876543210fedcba98765",
+      "type": "string"
+    },
+    {
+      "key": "staffId",
+      "value": "65fb222222222222222222aa",
+      "type": "string"
+    }
+  ]
+}

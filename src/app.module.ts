@@ -7,6 +7,7 @@ import { UserModule } from './user/user.module';
 import { BusinessModule } from './business/business.module';
 import { ServiceModule } from './service/service.module';
 import { ReviewModule } from './review/review.module';
+import { StaffModule } from './staff/staff.module';
 import { DatabaseModule } from './database/database.module';
 import { RedisModule } from './common/modules/redis.module';
 import { RateLimitModule } from './common/modules/rate-limit.module';
@@ -40,6 +41,7 @@ import { LoggerModule } from './common/modules/logger.module';
     BusinessModule,
     ServiceModule,
     ReviewModule,
+    StaffModule,
   ],
   controllers: [AppController],
   providers: [AppService],
