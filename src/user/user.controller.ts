@@ -1,67 +1,87 @@
 import {
+  BadRequestException,
   Controller,
+  ForbiddenException,
   Get,
-  Post,
   Body,
   Patch,
-  Param,
-  Delete,
-  HttpCode,
-  HttpStatus,
+  Request,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { UserService } from './user.service';
-import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { CustomLoggerService } from '../common/services/custom-logger.service';
 import {
   ApiResponseDecorator,
   ApiArrayResponseDecorator,
 } from '../common/decorators';
 import { User } from './entities/user.entity';
+import { AuthGuard } from '../common/guards/auth.guard';
 
 @ApiTags('users')
 @Controller('user')
+@UseGuards(AuthGuard)
 export class UserController {
-  constructor(
-    private readonly userService: UserService,
-    private readonly customLogger: CustomLoggerService,
-  ) {}
+  constructor(private readonly userService: UserService) {}
 
-  @ApiOperation({ summary: 'Create a new user' })
-  @ApiResponseDecorator(201, 'User created successfully', User)
-  @Post()
-  @HttpCode(HttpStatus.CREATED)
-  create(@Body() createUserDto: CreateUserDto) {
-    return this.userService.create(createUserDto);
-  }
-
-  @ApiOperation({ summary: 'Get all users' })
+  @ApiOperation({ summary: 'Get all users (Admin only)' })
   @ApiArrayResponseDecorator(200, 'Users retrieved successfully', User)
   @Get()
-  findAll() {
+  findAll(@Request() req: { user: { role: string } }) {
+    if (req.user.role !== 'admin') {
+      throw new ForbiddenException('Only admin can access all users');
+    }
     return this.userService.findAll();
   }
 
-  @ApiOperation({ summary: 'Get user by ID' })
+  @ApiOperation({ summary: 'Get my profile' })
   @ApiResponseDecorator(200, 'User retrieved successfully', User)
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.userService.findOne(id);
+  @Get('me')
+  findMe(@Request() req: { user: { userId: string } }) {
+    return this.userService.findOne(req.user.userId);
   }
 
-  @ApiOperation({ summary: 'Update user by ID' })
+  @ApiOperation({ summary: 'Update my profile (supports avatar image)' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'User profile fields and optional avatar image file',
+    schema: {
+      type: 'object',
+      properties: {
+        fullName: { type: 'string' },
+        phoneNumber: { type: 'string' },
+        country: { type: 'string' },
+        city: { type: 'string' },
+        postalCode: { type: 'number' },
+        sector: { type: 'string' },
+        avatar: { type: 'string', format: 'binary' },
+      },
+    },
+  })
   @ApiResponseDecorator(200, 'User updated successfully', User)
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    return this.userService.update(id, updateUserDto);
-  }
-
-  @ApiOperation({ summary: 'Delete user by ID' })
-  @ApiResponseDecorator(200, 'User deleted successfully')
-  @Delete(':id')
-  @HttpCode(HttpStatus.OK)
-  remove(@Param('id') id: string) {
-    return this.userService.remove(id);
+  @Patch('me')
+  @UseInterceptors(
+    FileInterceptor('avatar', {
+      storage: memoryStorage(),
+      limits: { fileSize: 5 * 1024 * 1024 },
+      fileFilter: (req, file, cb) => {
+        if (!file.mimetype.startsWith('image/')) {
+          cb(new BadRequestException('Only image files are allowed'), false);
+          return;
+        }
+        cb(null, true);
+      },
+    }),
+  )
+  updateMe(
+    @Request() req: { user: { userId: string } },
+    @Body() updateUserDto: UpdateUserDto,
+    @UploadedFile() avatar?: Express.Multer.File,
+  ) {
+    return this.userService.update(req.user.userId, updateUserDto, avatar);
   }
 }
