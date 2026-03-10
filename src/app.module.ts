@@ -8,6 +8,7 @@ import { BusinessModule } from './business/business.module';
 import { ServiceModule } from './service/service.module';
 import { ReviewModule } from './review/review.module';
 import { StaffModule } from './staff/staff.module';
+import { BookingModule } from './booking/booking.module';
 import { DatabaseModule } from './database/database.module';
 import { RedisModule } from './common/modules/redis.module';
 import { RateLimitModule } from './common/modules/rate-limit.module';
@@ -42,6 +43,7 @@ import { LoggerModule } from './common/modules/logger.module';
     ServiceModule,
     ReviewModule,
     StaffModule,
+    BookingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

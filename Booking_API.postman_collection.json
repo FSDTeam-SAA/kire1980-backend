@@ -1,0 +1,586 @@
+{
+  "info": {
+    "name": "Booking API",
+    "_postman_id": "booking-api-collection",
+    "description": "Complete API collection for Booking management endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{authToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Create Booking",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{authToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"serviceId\": \"{{serviceId}}\",\n  \"businessId\": \"{{businessId}}\",\n  \"dateAndTime\": \"2026-03-15T10:00:00.000Z\",\n  \"selectedProvider\": \"{{staffId}}\",\n  \"notes\": \"Please use organic hair products\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/bookings",
+          "host": ["{{baseUrl}}"],
+          "path": ["bookings"]
+        },
+        "description": "Create a new booking. Requires authentication. Validates service, business, staff member assignment, and time slot availability."
+      },
+      "response": [
+        {
+          "name": "Success",
+          "originalRequest": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"serviceId\": \"65f9876543210fedcba98765\",\n  \"businessId\": \"65f1234567890abcdef12345\",\n  \"dateAndTime\": \"2026-03-15T10:00:00.000Z\",\n  \"selectedProvider\": \"65fb222222222222222222aa\",\n  \"notes\": \"Optional notes\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/bookings",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings"]
+            }
+          },
+          "status": "Created",
+          "code": 201,
+          "_postman_previewlanguage": "json",
+          "header": [],
+          "cookie": [],
+          "body": "{\n  \"_id\": \"65fc333333333333333333aa\",\n  \"userId\": \"65f0000000000000000000bb\",\n  \"serviceId\": \"65f9876543210fedcba98765\",\n  \"businessId\": \"65f1234567890abcdef12345\",\n  \"dateAndTime\": \"2026-03-15T10:00:00.000Z\",\n  \"selectedProvider\": \"65fb222222222222222222aa\",\n  \"bookingStatus\": \"pending\",\n  \"notes\": \"Optional notes\",\n  \"isDeleted\": false,\n  \"createdAt\": \"2026-03-10T10:00:00.000Z\",\n  \"updatedAt\": \"2026-03-10T10:00:00.000Z\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Get All Bookings",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{authToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/bookings?page=1&limit=10",
+          "host": ["{{baseUrl}}"],
+          "path": ["bookings"],
+          "query": [
+            {
+              "key": "page",
+              "value": "1",
+              "description": "Page number (default: 1)"
+            },
+            {
+              "key": "limit",
+              "value": "10",
+              "description": "Items per page (default: 10)"
+            },
+            {
+              "key": "userId",
+              "value": "{{userId}}",
+              "description": "Filter by user ID",
+              "disabled": true
+            },
+            {
+              "key": "businessId",
+              "value": "{{businessId}}",
+              "description": "Filter by business ID",
+              "disabled": true
+            },
+            {
+              "key": "status",
+              "value": "pending",
+              "description": "Filter by status (pending, confirmed, in_progress, completed, cancelled, no_show)",
+              "disabled": true
+            }
+          ]
+        },
+        "description": "Get all bookings with pagination. Requires authentication. Can be filtered by userId, businessId, or status."
+      },
+      "response": [
+        {
+          "name": "Success",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/bookings?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [],
+          "cookie": [],
+          "body": "{\n  \"data\": [\n    {\n      \"_id\": \"65fc333333333333333333aa\",\n      \"userId\": {\n        \"_id\": \"65f0000000000000000000bb\",\n        \"email\": \"user@example.com\",\n        \"firstName\": \"John\",\n        \"lastName\": \"Doe\"\n      },\n      \"serviceId\": {\n        \"_id\": \"65f9876543210fedcba98765\",\n        \"serviceName\": \"Hair Cut\",\n        \"price\": 50,\n        \"serviceDuration\": \"30 mins\"\n      },\n      \"businessId\": {\n        \"_id\": \"65f1234567890abcdef12345\",\n        \"businessName\": \"Best Salon\",\n        \"businessEmail\": \"info@bestsalon.com\",\n        \"phoneNumber\": \"+1987654321\"\n      },\n      \"selectedProvider\": {\n        \"_id\": \"65fb222222222222222222aa\",\n        \"firstName\": \"John\",\n        \"lastName\": \"Smith\",\n        \"email\": \"john.smith@example.com\"\n      },\n      \"dateAndTime\": \"2026-03-15T10:00:00.000Z\",\n      \"bookingStatus\": \"pending\",\n      \"notes\": \"Optional notes\",\n      \"createdAt\": \"2026-03-10T10:00:00.000Z\"\n    }\n  ],\n  \"meta\": {\n    \"total\": 1,\n    \"page\": 1,\n    \"limit\": 10,\n    \"totalPages\": 1\n  }\n}"
+        }
+      ]
+    },
+    {
+      "name": "Get Bookings by Status",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{authToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/bookings?status=confirmed&page=1&limit=10",
+          "host": ["{{baseUrl}}"],
+          "path": ["bookings"],
+          "query": [
+            {
+              "key": "status",
+              "value": "confirmed"
+            },
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            }
+          ]
+        },
+        "description": "Get all bookings with a specific status (pending, confirmed, in_progress, completed, cancelled, no_show)."
+      },
+      "response": []
+    },
+    {
+      "name": "Get User Bookings",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{authToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/bookings/user/{{userId}}?page=1&limit=10",
+          "host": ["{{baseUrl}}"],
+          "path": ["bookings", "user", "{{userId}}"],
+          "query": [
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            }
+          ]
+        },
+        "description": "Get all bookings for a specific user with pagination."
+      },
+      "response": []
+    },
+    {
+      "name": "Get Business Bookings",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{authToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/bookings/business/{{businessId}}?page=1&limit=10",
+          "host": ["{{baseUrl}}"],
+          "path": ["bookings", "business", "{{businessId}}"],
+          "query": [
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            }
+          ]
+        },
+        "description": "Get all bookings for a specific business with pagination."
+      },
+      "response": []
+    },
+    {
+      "name": "Get Booking by ID",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{authToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/bookings/{{bookingId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["bookings", "{{bookingId}}"]
+        },
+        "description": "Get a specific booking by ID with full populated details."
+      },
+      "response": [
+        {
+          "name": "Success",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/bookings/65fc333333333333333333aa",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings", "65fc333333333333333333aa"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [],
+          "cookie": [],
+          "body": "{\n  \"_id\": \"65fc333333333333333333aa\",\n  \"userId\": {\n    \"_id\": \"65f0000000000000000000bb\",\n    \"email\": \"user@example.com\",\n    \"firstName\": \"John\",\n    \"lastName\": \"Doe\",\n    \"phoneNumber\": \"+1234567890\"\n  },\n  \"serviceId\": {\n    \"_id\": \"65f9876543210fedcba98765\",\n    \"serviceName\": \"Hair Cut\",\n    \"price\": 50,\n    \"serviceDuration\": \"30 mins\",\n    \"description\": \"Professional haircut service\"\n  },\n  \"businessId\": {\n    \"_id\": \"65f1234567890abcdef12345\",\n    \"businessName\": \"Best Salon\",\n    \"businessEmail\": \"info@bestsalon.com\",\n    \"phoneNumber\": \"+1987654321\",\n    \"address\": \"123 Main St\"\n  },\n  \"selectedProvider\": {\n    \"_id\": \"65fb222222222222222222aa\",\n    \"firstName\": \"John\",\n    \"lastName\": \"Smith\",\n    \"email\": \"john.smith@example.com\",\n    \"phoneNumber\": \"+1234567891\",\n    \"avatar\": {\n      \"url\": \"https://res.cloudinary.com/.../avatar.jpg\"\n    }\n  },\n  \"dateAndTime\": \"2026-03-15T10:00:00.000Z\",\n  \"bookingStatus\": \"confirmed\",\n  \"notes\": \"Optional notes\",\n  \"confirmedAt\": \"2026-03-10T11:00:00.000Z\",\n  \"createdAt\": \"2026-03-10T10:00:00.000Z\",\n  \"updatedAt\": \"2026-03-10T11:00:00.000Z\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Update Booking",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{authToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"dateAndTime\": \"2026-03-15T14:00:00.000Z\",\n  \"notes\": \"Updated notes: Changed time to afternoon\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/bookings/{{bookingId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["bookings", "{{bookingId}}"]
+        },
+        "description": "Update booking details. Requires authentication. Only booking owner or business owner can update. Validates time slot conflicts."
+      },
+      "response": []
+    },
+    {
+      "name": "Confirm Booking",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{authToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"bookingStatus\": \"confirmed\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/bookings/{{bookingId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["bookings", "{{bookingId}}"]
+        },
+        "description": "Confirm a pending booking. Updates status to 'confirmed' and sets confirmedAt timestamp."
+      },
+      "response": [
+        {
+          "name": "Success",
+          "originalRequest": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingStatus\": \"confirmed\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/bookings/65fc333333333333333333aa",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings", "65fc333333333333333333aa"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [],
+          "cookie": [],
+          "body": "{\n  \"_id\": \"65fc333333333333333333aa\",\n  \"bookingStatus\": \"confirmed\",\n  \"confirmedAt\": \"2026-03-10T11:00:00.000Z\",\n  \"updatedAt\": \"2026-03-10T11:00:00.000Z\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Complete Booking",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{authToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"bookingStatus\": \"completed\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/bookings/{{bookingId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["bookings", "{{bookingId}}"]
+        },
+        "description": "Mark booking as completed. Updates status to 'completed' and sets completedAt timestamp."
+      },
+      "response": []
+    },
+    {
+      "name": "Cancel Booking",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{authToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"cancellationReason\": \"Client requested to reschedule to next week\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/bookings/{{bookingId}}/cancel",
+          "host": ["{{baseUrl}}"],
+          "path": ["bookings", "{{bookingId}}", "cancel"]
+        },
+        "description": "Cancel a booking. Can include optional cancellation reason. Sets status to 'cancelled' and cancelledAt timestamp."
+      },
+      "response": [
+        {
+          "name": "Success",
+          "originalRequest": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cancellationReason\": \"Client requested to reschedule\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/bookings/65fc333333333333333333aa/cancel",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings", "65fc333333333333333333aa", "cancel"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [],
+          "cookie": [],
+          "body": "{\n  \"message\": \"Booking cancelled successfully\",\n  \"booking\": {\n    \"_id\": \"65fc333333333333333333aa\",\n    \"bookingStatus\": \"cancelled\",\n    \"cancelledAt\": \"2026-03-10T12:00:00.000Z\",\n    \"cancellationReason\": \"Client requested to reschedule\"\n  }\n}"
+        }
+      ]
+    },
+    {
+      "name": "Delete Booking",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{authToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/bookings/{{bookingId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["bookings", "{{bookingId}}"]
+        },
+        "description": "Delete (soft delete) a booking. Requires authentication. Only booking owner or business owner can delete."
+      },
+      "response": [
+        {
+          "name": "Success",
+          "originalRequest": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/bookings/65fc333333333333333333aa",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings", "65fc333333333333333333aa"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [],
+          "cookie": [],
+          "body": "{\n  \"message\": \"Booking deleted successfully\"\n}"
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "your_jwt_token_here",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "65f0000000000000000000bb",
+      "type": "string"
+    },
+    {
+      "key": "businessId",
+      "value": "65f1234567890abcdef12345",
+      "type": "string"
+    },
+    {
+      "key": "serviceId",
+      "value": "65f9876543210fedcba98765",
+      "type": "string"
+    },
+    {
+      "key": "staffId",
+      "value": "65fb222222222222222222aa",
+      "type": "string"
+    },
+    {
+      "key": "bookingId",
+      "value": "65fc333333333333333333aa",
+      "type": "string"
+    }
+  ]
+}
