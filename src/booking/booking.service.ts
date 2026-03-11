@@ -50,69 +50,89 @@ export class BookingService {
       throw new NotFoundException('Business not found');
     }
 
-    // Verify service exists and belongs to the business
-    const service = await this.serviceModel.findById(
-      createBookingDto.serviceId,
-    );
-    if (!service) {
-      throw new NotFoundException('Service not found');
-    }
+    const normalizedBusinessId = new Types.ObjectId(createBookingDto.businessId);
+    const seenSlots = new Set<string>();
 
-    if (service.businessId.toString() !== createBookingDto.businessId) {
-      throw new BadRequestException(
-        'Service does not belong to the specified business',
-      );
-    }
+    for (const bookingItem of createBookingDto.services) {
+      // Verify service exists and belongs to the business
+      const service = await this.serviceModel.findById(bookingItem.serviceId);
+      if (!service) {
+        throw new NotFoundException(`Service not found: ${bookingItem.serviceId}`);
+      }
 
-    // Verify staff member exists and is assigned to the service
-    const staffMember = await this.staffModel.findOne({
-      _id: createBookingDto.selectedProvider,
-      businessId: new Types.ObjectId(createBookingDto.businessId),
-      isDeleted: false,
-      isActive: true,
-    });
+      if (service.businessId.toString() !== createBookingDto.businessId) {
+        throw new BadRequestException(
+          `Service ${bookingItem.serviceId} does not belong to the specified business`,
+        );
+      }
 
-    if (!staffMember) {
-      throw new NotFoundException('Staff member not found or is not active');
-    }
+      // Verify staff member exists and is assigned to the service
+      const staffMember = await this.staffModel.findOne({
+        _id: bookingItem.selectedProvider,
+        businessId: normalizedBusinessId,
+        isDeleted: false,
+        isActive: true,
+      });
 
-    if (
-      !staffMember.serviceIds.some(
-        (id) => id.toString() === createBookingDto.serviceId,
-      )
-    ) {
-      throw new BadRequestException(
-        'Selected provider is not assigned to this service',
-      );
-    }
+      if (!staffMember) {
+        throw new NotFoundException(
+          `Staff member not found or inactive: ${bookingItem.selectedProvider}`,
+        );
+      }
 
-    // Check for time slot conflicts
-    const conflictingBooking = await this.bookingModel.findOne({
-      selectedProvider: new Types.ObjectId(createBookingDto.selectedProvider),
-      dateAndTime: createBookingDto.dateAndTime,
-      bookingStatus: {
-        $in: [
-          BookingStatus.PENDING,
-          BookingStatus.CONFIRMED,
-          BookingStatus.IN_PROGRESS,
-        ],
-      },
-      isDeleted: false,
-    });
+      if (
+        !staffMember.serviceIds.some(
+          (id) => id.toString() === bookingItem.serviceId,
+        )
+      ) {
+        throw new BadRequestException(
+          `Selected provider ${bookingItem.selectedProvider} is not assigned to service ${bookingItem.serviceId}`,
+        );
+      }
 
-    if (conflictingBooking) {
-      throw new ConflictException(
-        'This time slot is already booked with the selected provider',
-      );
+      // Prevent duplicate provider+time combinations in same request
+      const slotKey = `${bookingItem.selectedProvider}_${new Date(bookingItem.dateAndTime).toISOString()}`;
+      if (seenSlots.has(slotKey)) {
+        throw new ConflictException(
+          'Duplicate provider and time slot found in services payload',
+        );
+      }
+      seenSlots.add(slotKey);
+
+      // Check for time slot conflicts
+      const conflictingBooking = await this.bookingModel.findOne({
+        services: {
+          $elemMatch: {
+            selectedProvider: new Types.ObjectId(bookingItem.selectedProvider),
+            dateAndTime: bookingItem.dateAndTime,
+          },
+        },
+        bookingStatus: {
+          $in: [
+            BookingStatus.PENDING,
+            BookingStatus.CONFIRMED,
+            BookingStatus.IN_PROGRESS,
+          ],
+        },
+        isDeleted: false,
+      });
+
+      if (conflictingBooking) {
+        throw new ConflictException(
+          `Time slot already booked for provider ${bookingItem.selectedProvider}`,
+        );
+      }
     }
 
     // Create booking
     const booking = await this.bookingModel.create({
       userId: new Types.ObjectId(userId),
-      serviceId: new Types.ObjectId(createBookingDto.serviceId),
-      businessId: new Types.ObjectId(createBookingDto.businessId),
-      dateAndTime: createBookingDto.dateAndTime,
-      selectedProvider: new Types.ObjectId(createBookingDto.selectedProvider),
+      businessId: normalizedBusinessId,
+      services: createBookingDto.services.map((bookingItem) => ({
+        serviceId: new Types.ObjectId(bookingItem.serviceId),
+        dateAndTime: bookingItem.dateAndTime,
+        selectedProvider: new Types.ObjectId(bookingItem.selectedProvider),
+      })),
       notes: createBookingDto.notes,
       bookingStatus: BookingStatus.PENDING,
     });
@@ -152,10 +172,10 @@ export class BookingService {
       this.bookingModel
         .find(filter)
         .populate('userId', 'email firstName lastName')
-        .populate('serviceId', 'serviceName price serviceDuration')
+        .populate('services.serviceId', 'serviceName price serviceDuration')
         .populate('businessId', 'businessName businessEmail phoneNumber')
-        .populate('selectedProvider', 'firstName lastName email')
-        .sort({ dateAndTime: -1 })
+        .populate('services.selectedProvider', 'firstName lastName email')
+        .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .lean(),
@@ -181,10 +201,13 @@ export class BookingService {
     const booking = await this.bookingModel
       .findOne({ _id: id, isDeleted: false })
       .populate('userId', 'email firstName lastName phoneNumber')
-      .populate('serviceId', 'serviceName price serviceDuration description')
+      .populate(
+        'services.serviceId',
+        'serviceName price serviceDuration description',
+      )
       .populate('businessId', 'businessName businessEmail phoneNumber address')
       .populate(
-        'selectedProvider',
+        'services.selectedProvider',
         'firstName lastName email phoneNumber avatar',
       )
       .lean();
@@ -206,10 +229,10 @@ export class BookingService {
     const [bookings, total] = await Promise.all([
       this.bookingModel
         .find({ userId: new Types.ObjectId(userId), isDeleted: false })
-        .populate('serviceId', 'serviceName price serviceDuration')
+        .populate('services.serviceId', 'serviceName price serviceDuration')
         .populate('businessId', 'businessName')
-        .populate('selectedProvider', 'firstName lastName')
-        .sort({ dateAndTime: -1 })
+        .populate('services.selectedProvider', 'firstName lastName')
+        .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .lean(),
@@ -241,9 +264,9 @@ export class BookingService {
       this.bookingModel
         .find({ businessId: new Types.ObjectId(businessId), isDeleted: false })
         .populate('userId', 'email firstName lastName phoneNumber')
-        .populate('serviceId', 'serviceName price')
-        .populate('selectedProvider', 'firstName lastName')
-        .sort({ dateAndTime: -1 })
+        .populate('services.serviceId', 'serviceName price')
+        .populate('services.selectedProvider', 'firstName lastName')
+        .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .lean(),
@@ -298,31 +321,6 @@ export class BookingService {
         booking.bookingStatus,
         updateBookingDto.bookingStatus,
       );
-    }
-
-    // Check for time slot conflicts if dateAndTime or provider is being changed
-    if (updateBookingDto.dateAndTime || updateBookingDto.selectedProvider) {
-      const conflictingBooking = await this.bookingModel.findOne({
-        _id: { $ne: id },
-        selectedProvider: updateBookingDto.selectedProvider
-          ? new Types.ObjectId(updateBookingDto.selectedProvider)
-          : booking.selectedProvider,
-        dateAndTime: updateBookingDto.dateAndTime || booking.dateAndTime,
-        bookingStatus: {
-          $in: [
-            BookingStatus.PENDING,
-            BookingStatus.CONFIRMED,
-            BookingStatus.IN_PROGRESS,
-          ],
-        },
-        isDeleted: false,
-      });
-
-      if (conflictingBooking) {
-        throw new ConflictException(
-          'This time slot is already booked with the selected provider',
-        );
-      }
     }
 
     // Update timestamp fields based on status
