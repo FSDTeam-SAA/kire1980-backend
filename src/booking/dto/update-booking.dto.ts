@@ -4,7 +4,7 @@ import { IsEnum, IsOptional, IsString } from 'class-validator';
 import { BookingStatus } from '../../database/schemas/booking.schema';
 
 export class UpdateBookingDto extends PartialType(
-  OmitType(CreateBookingDto, ['businessId', 'serviceId'] as const),
+  OmitType(CreateBookingDto, ['businessId', 'services'] as const),
 ) {
   @IsEnum(BookingStatus)
   @IsOptional()

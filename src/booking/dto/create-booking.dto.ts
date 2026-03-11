@@ -1,21 +1,20 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMinSize,
+  IsArray,
   IsDate,
   IsMongoId,
   IsNotEmpty,
   IsOptional,
   IsString,
   MinDate,
+  ValidateNested,
 } from 'class-validator';
 
-export class CreateBookingDto {
+export class CreateBookingServiceItemDto {
   @IsMongoId()
   @IsNotEmpty()
   serviceId: string;
-
-  @IsMongoId()
-  @IsNotEmpty()
-  businessId: string;
 
   @Type(() => Date)
   @IsDate()
@@ -27,6 +26,18 @@ export class CreateBookingDto {
   @IsMongoId()
   @IsNotEmpty()
   selectedProvider: string;
+}
+
+export class CreateBookingDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => CreateBookingServiceItemDto)
+  services: CreateBookingServiceItemDto[];
+
+  @IsMongoId()
+  @IsNotEmpty()
+  businessId: string;
 
   @IsString()
   @IsOptional()
