@@ -11,6 +11,31 @@ export enum BookingStatus {
   NO_SHOW = 'no_show',
 }
 
+@Schema({ _id: false })
+class BookingItem {
+  @Prop({
+    type: Types.ObjectId,
+    ref: 'Service',
+    required: true,
+  })
+  serviceId!: Types.ObjectId;
+
+  @Prop({
+    type: Date,
+    required: true,
+  })
+  dateAndTime!: Date;
+
+  @Prop({
+    type: Types.ObjectId,
+    ref: 'StaffMember',
+    required: true,
+  })
+  selectedProvider!: Types.ObjectId;
+}
+
+const BookingItemSchema = SchemaFactory.createForClass(BookingItem);
+
 @Schema({
   timestamps: true,
   collection: 'bookings',
@@ -25,12 +50,15 @@ export class Booking extends Document {
   userId!: Types.ObjectId;
 
   @Prop({
-    type: Types.ObjectId,
-    ref: 'Service',
+    type: [BookingItemSchema],
     required: true,
-    index: true,
+    validate: {
+      validator: (value: BookingItem[]) =>
+        Array.isArray(value) && value.length > 0,
+      message: 'At least one service is required for a booking',
+    },
   })
-  serviceId!: Types.ObjectId;
+  services!: BookingItem[];
 
   @Prop({
     type: Types.ObjectId,
@@ -39,16 +67,6 @@ export class Booking extends Document {
     index: true,
   })
   businessId!: Types.ObjectId;
-
-  @Prop({ required: true, type: Date })
-  dateAndTime!: Date;
-
-  @Prop({
-    type: Types.ObjectId,
-    ref: 'StaffMember',
-    required: true,
-  })
-  selectedProvider!: Types.ObjectId;
 
   @Prop({
     type: String,
@@ -80,6 +98,9 @@ export const BookingSchema = SchemaFactory.createForClass(Booking);
 
 // Add compound indexes for efficient queries
 BookingSchema.index({ userId: 1, bookingStatus: 1, isDeleted: 1 });
-BookingSchema.index({ businessId: 1, dateAndTime: 1 });
-BookingSchema.index({ selectedProvider: 1, dateAndTime: 1 });
-BookingSchema.index({ serviceId: 1, bookingStatus: 1 });
+BookingSchema.index({ businessId: 1, 'services.dateAndTime': 1 });
+BookingSchema.index({
+  'services.selectedProvider': 1,
+  'services.dateAndTime': 1,
+});
+BookingSchema.index({ 'services.serviceId': 1, bookingStatus: 1 });
