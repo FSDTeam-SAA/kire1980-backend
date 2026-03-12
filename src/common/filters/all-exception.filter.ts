@@ -28,46 +28,16 @@ export class AllExceptionsFilter implements ExceptionFilter {
       return;
     }
 
-    console.log('all exceptions', exception);
-
     let statusCode = HttpStatus.INTERNAL_SERVER_ERROR;
     let message = 'Internal Server Error';
     let error = 'Error';
 
-    // Log the exception
-    this.logger.error('Unhandled exception caught', {
-      context: 'AllExceptionsFilter',
-      statusCode,
-      path: request.url,
-      method: request.method,
-      exception:
-        exception instanceof Error ? exception.message : String(exception),
-      stack: exception instanceof Error ? exception.stack : undefined,
-    });
-    // let errorCode: string | undefined = undefined;
-    // let errorFields: string[] | undefined = undefined;
-
-    // Check if exception has a status property
-    if (
-      typeof exception === 'object' &&
-      exception !== null &&
-      'status' in exception &&
-      typeof exception.status === 'number'
-    ) {
-      statusCode = exception.status;
-    }
+    statusCode = this.extractStatusCode(exception, statusCode);
 
     // Handle NestJS HttpException
     if (exception instanceof HttpException) {
       statusCode = exception.getStatus();
-      const res = exception.getResponse();
-      if (typeof res === 'string') message = res;
-      else if (typeof res === 'object' && res['message']) {
-        const resMessage = res['message'] as string | string[];
-        message = Array.isArray(resMessage)
-          ? resMessage.join(', ')
-          : String(resMessage);
-      }
+      message = this.extractHttpMessage(exception.getResponse(), message);
       error = exception.name;
     }
 
@@ -76,6 +46,24 @@ export class AllExceptionsFilter implements ExceptionFilter {
       // statusCode = exception.;
       message = exception.message;
       error = exception.name;
+    }
+
+    const logPayload = {
+      context: 'AllExceptionsFilter',
+      statusCode,
+      path: request.url,
+      method: request.method,
+      exception:
+        exception instanceof Error
+          ? exception.message
+          : this.safeStringify(exception),
+      stack: exception instanceof Error ? exception.stack : undefined,
+    };
+
+    if (statusCode === HttpStatus.TOO_MANY_REQUESTS) {
+      this.logger.warn('Request throttled', logPayload);
+    } else {
+      this.logger.error('Unhandled exception caught', logPayload);
     }
 
     response.status(statusCode).json({
@@ -90,5 +78,53 @@ export class AllExceptionsFilter implements ExceptionFilter {
           ? exception.stack
           : null,
     });
+  }
+
+  private extractStatusCode(
+    exception: unknown,
+    fallback: HttpStatus,
+  ): HttpStatus {
+    if (
+      typeof exception === 'object' &&
+      exception !== null &&
+      'status' in exception &&
+      typeof exception.status === 'number'
+    ) {
+      return exception.status;
+    }
+
+    return fallback;
+  }
+
+  private extractHttpMessage(response: unknown, fallback: string): string {
+    if (typeof response === 'string') {
+      return response;
+    }
+
+    if (
+      typeof response === 'object' &&
+      response !== null &&
+      'message' in response
+    ) {
+      const responseMessage = (response as { message: string | string[] })
+        .message;
+      return Array.isArray(responseMessage)
+        ? responseMessage.join(', ')
+        : responseMessage;
+    }
+
+    return fallback;
+  }
+
+  private safeStringify(value: unknown): string {
+    if (typeof value === 'string') {
+      return value;
+    }
+
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return 'Unknown exception';
+    }
   }
 }

@@ -2,13 +2,15 @@ import { WinstonModuleOptions } from 'nest-winston';
 import * as winston from 'winston';
 import LokiTransport from 'winston-loki';
 
-// Check if Loki is available
-const lokiEnabled = process.env.LOKI_ENABLED !== 'false';
+const isProduction = process.env.NODE_ENV === 'production';
+// Enable Loki explicitly in development; keep enabled by default in production
+const lokiEnabled =
+  process.env.LOKI_ENABLED === undefined
+    ? isProduction
+    : process.env.LOKI_ENABLED === 'true';
 const lokiHost =
   process.env.LOKI_URL ||
-  (process.env.NODE_ENV === 'production'
-    ? 'http://loki:3100'
-    : 'http://localhost:3100');
+  (isProduction ? 'http://loki:3100' : 'http://localhost:3100');
 
 const transports: winston.transport[] = [
   // Console transport for development
@@ -19,8 +21,11 @@ const transports: winston.transport[] = [
       winston.format.splat(),
       winston.format.colorize(),
       winston.format.printf(({ timestamp, level, message, context, trace }) => {
+        const traceValue =
+          typeof trace === 'string' ? trace : JSON.stringify(trace, null, 2);
+        const traceText = trace ? `\n${traceValue}` : '';
         // eslint-disable-next-line @typescript-eslint/restrict-template-expressions, @typescript-eslint/no-base-to-string
-        return `${timestamp} [${context || 'Application'}] ${level}: ${message}${trace ? `\n${trace}` : ''}`;
+        return `${timestamp} [${context || 'Application'}] ${level}: ${message}${traceText}`;
       }),
     ),
   }),
@@ -43,7 +48,7 @@ if (lokiEnabled) {
           // Silently log connection errors to avoid spam
           if (process.env.NODE_ENV === 'development') {
             const errorMessage =
-              err instanceof Error ? err.message : String(err);
+              err instanceof Error ? err.message : JSON.stringify(err, null, 2);
             console.error('Loki connection error:', errorMessage);
           }
         },

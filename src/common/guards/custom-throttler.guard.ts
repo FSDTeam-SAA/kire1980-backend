@@ -21,6 +21,21 @@ export class CustomThrottlerGuard extends ThrottlerGuard {
   protected async shouldSkip(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
     const path = request.url as string;
+    const ip = String(request.ip || request.socket?.remoteAddress || '');
+    const forwardedFor = String(request.headers['x-forwarded-for'] || '');
+    const isDev = process.env.NODE_ENV !== 'production';
+
+    // Skip throttling for local development traffic
+    if (
+      isDev &&
+      (ip === '127.0.0.1' ||
+        ip === '::1' ||
+        ip.endsWith('127.0.0.1') ||
+        forwardedFor.includes('127.0.0.1') ||
+        request.hostname === 'localhost')
+    ) {
+      return true;
+    }
 
     // Skip throttling for Swagger/OpenAPI documentation
     if (

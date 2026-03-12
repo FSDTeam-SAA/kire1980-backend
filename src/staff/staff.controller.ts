@@ -11,16 +11,18 @@ import {
   Request,
   UseInterceptors,
   UploadedFile,
-  ParseBoolPipe,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
+import { Throttle } from '@nestjs/throttler';
 import { StaffService } from './staff.service';
 import { CreateStaffMemberDto } from './dto/create-staff-member.dto';
 import { UpdateStaffMemberDto } from './dto/update-staff-member.dto';
 import { AuthGuard } from '../common/guards/auth.guard';
+import { THROTTLER_CONFIG } from '../common/config/throttler.config';
 
 @Controller('staff')
+@Throttle({ default: THROTTLER_CONFIG.RELAXED })
 export class StaffController {
   constructor(private readonly staffService: StaffService) {}
 
@@ -31,7 +33,7 @@ export class StaffController {
       storage: memoryStorage(),
       limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
       fileFilter: (req, file, cb) => {
-        if (!file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
+        if (!/\/(jpg|jpeg|png|gif|webp)$/.exec(file.mimetype)) {
           return cb(new Error('Only image files are allowed!'), false);
         }
         cb(null, true);
@@ -59,11 +61,11 @@ export class StaffController {
     @Query('isActive') isActive?: string,
   ) {
     return this.staffService.findAll(
-      page ? parseInt(page, 10) : 1,
-      limit ? parseInt(limit, 10) : 10,
+      page ? Number.parseInt(page, 10) : 1,
+      limit ? Number.parseInt(limit, 10) : 10,
       businessId,
       serviceId,
-      isActive !== undefined ? isActive === 'true' : undefined,
+      isActive === undefined ? undefined : isActive === 'true',
     );
   }
 
@@ -75,8 +77,8 @@ export class StaffController {
   ) {
     return this.staffService.findByBusiness(
       businessId,
-      page ? parseInt(page, 10) : 1,
-      limit ? parseInt(limit, 10) : 10,
+      page ? Number.parseInt(page, 10) : 1,
+      limit ? Number.parseInt(limit, 10) : 10,
     );
   }
 
@@ -92,7 +94,7 @@ export class StaffController {
       storage: memoryStorage(),
       limits: { fileSize: 5 * 1024 * 1024 },
       fileFilter: (req, file, cb) => {
-        if (!file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
+        if (!/\/(jpg|jpeg|png|gif|webp)$/.exec(file.mimetype)) {
           return cb(new Error('Only image files are allowed!'), false);
         }
         cb(null, true);

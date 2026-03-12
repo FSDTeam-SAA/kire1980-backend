@@ -38,6 +38,11 @@ export class StaffService {
     createStaffMemberDto: CreateStaffMemberDto,
     file?: Express.Multer.File,
   ) {
+    const businessIdAsObjectId = new Types.ObjectId(
+      createStaffMemberDto.businessId,
+    );
+    const businessIdAsString = createStaffMemberDto.businessId;
+
     // Verify business exists
     const business = await this.businessModel.findById(
       createStaffMemberDto.businessId,
@@ -56,7 +61,7 @@ export class StaffService {
     // Check if email already exists for this business
     const existingStaff = await this.staffModel.findOne({
       email: createStaffMemberDto.email,
-      businessId: new Types.ObjectId(createStaffMemberDto.businessId),
+      businessId: businessIdAsObjectId,
       isDeleted: false,
     });
 
@@ -68,12 +73,13 @@ export class StaffService {
 
     // Verify all service IDs belong to the business
     if (createStaffMemberDto.serviceIds?.length) {
+      const uniqueServiceIds = [...new Set(createStaffMemberDto.serviceIds)];
       const services = await this.serviceModel.find({
-        _id: { $in: createStaffMemberDto.serviceIds },
-        businessId: new Types.ObjectId(createStaffMemberDto.businessId),
+        _id: { $in: uniqueServiceIds },
+        businessId: { $in: [businessIdAsObjectId, businessIdAsString] },
       });
 
-      if (services.length !== createStaffMemberDto.serviceIds.length) {
+      if (services.length !== uniqueServiceIds.length) {
         throw new BadRequestException(
           'One or more service IDs are invalid or do not belong to this business',
         );
@@ -100,7 +106,7 @@ export class StaffService {
       lastName: createStaffMemberDto.lastName,
       email: createStaffMemberDto.email,
       phoneNumber: createStaffMemberDto.phoneNumber,
-      businessId: new Types.ObjectId(createStaffMemberDto.businessId),
+      businessId: businessIdAsObjectId,
       serviceIds:
         createStaffMemberDto.serviceIds?.map((id) => new Types.ObjectId(id)) ||
         [],
@@ -244,12 +250,15 @@ export class StaffService {
 
     // Verify service IDs if being updated
     if (updateStaffMemberDto.serviceIds?.length) {
+      const uniqueServiceIds = [...new Set(updateStaffMemberDto.serviceIds)];
       const services = await this.serviceModel.find({
-        _id: { $in: updateStaffMemberDto.serviceIds },
-        businessId: staffMember.businessId,
+        _id: { $in: uniqueServiceIds },
+        businessId: {
+          $in: [staffMember.businessId, staffMember.businessId.toString()],
+        },
       });
 
-      if (services.length !== updateStaffMemberDto.serviceIds.length) {
+      if (services.length !== uniqueServiceIds.length) {
         throw new BadRequestException(
           'One or more service IDs are invalid or do not belong to this business',
         );
