@@ -398,6 +398,47 @@ export class BookingService {
     return { message: 'Booking cancelled successfully', booking };
   }
 
+  async completeBooking(id: string, userId: string) {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Invalid booking ID');
+    }
+
+    const booking = await this.bookingModel.findOne({
+      _id: id,
+      isDeleted: false,
+    });
+
+    if (!booking) {
+      throw new NotFoundException('Booking not found');
+    }
+
+    // Only business owner can mark as completed
+    const business = await this.businessModel.findById(booking.businessId);
+    if (!business || business.ownerId.toString() !== userId) {
+      throw new ForbiddenException(
+        'Only the business owner can mark a booking as completed',
+      );
+    }
+
+    // Must be IN_PROGRESS to complete
+    if (booking.bookingStatus !== BookingStatus.IN_PROGRESS) {
+      throw new BadRequestException(
+        `Cannot complete a booking with status: ${booking.bookingStatus}. Booking must be in_progress first.`,
+      );
+    }
+
+    booking.bookingStatus = BookingStatus.COMPLETED;
+    booking.completedAt = new Date();
+    await booking.save();
+
+    this.customLogger.log(
+      `Booking ${id} marked as completed by business owner ${userId}`,
+      BookingService.name,
+    );
+
+    return { message: 'Booking marked as completed', booking };
+  }
+
   async remove(id: string, userId: string) {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid booking ID');

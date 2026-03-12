@@ -103,6 +103,12 @@ export class BookingController {
     );
   }
 
+  @Patch(':id/complete')
+  @UseGuards(AuthGuard)
+  complete(@Param('id') id: string, @Request() req) {
+    return this.bookingService.completeBooking(id, req.user.userId);
+  }
+
   @Delete(':id')
   @UseGuards(AuthGuard)
   remove(@Param('id') id: string, @Request() req) {
