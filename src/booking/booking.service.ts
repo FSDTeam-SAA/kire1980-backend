@@ -50,14 +50,18 @@ export class BookingService {
       throw new NotFoundException('Business not found');
     }
 
-    const normalizedBusinessId = new Types.ObjectId(createBookingDto.businessId);
+    const normalizedBusinessId = new Types.ObjectId(
+      createBookingDto.businessId,
+    );
     const seenSlots = new Set<string>();
 
     for (const bookingItem of createBookingDto.services) {
       // Verify service exists and belongs to the business
       const service = await this.serviceModel.findById(bookingItem.serviceId);
       if (!service) {
-        throw new NotFoundException(`Service not found: ${bookingItem.serviceId}`);
+        throw new NotFoundException(
+          `Service not found: ${bookingItem.serviceId}`,
+        );
       }
 
       if (service.businessId.toString() !== createBookingDto.businessId) {

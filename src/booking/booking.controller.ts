@@ -37,8 +37,8 @@ export class BookingController {
     @Query('status') status?: BookingStatus,
   ) {
     return this.bookingService.findAll(
-      page ? parseInt(page, 10) : 1,
-      limit ? parseInt(limit, 10) : 10,
+      page ? Number.parseInt(page, 10) : 1,
+      limit ? Number.parseInt(limit, 10) : 10,
       userId,
       businessId,
       status,
@@ -54,8 +54,8 @@ export class BookingController {
   ) {
     return this.bookingService.findUserBookings(
       userId,
-      page ? parseInt(page, 10) : 1,
-      limit ? parseInt(limit, 10) : 10,
+      page ? Number.parseInt(page, 10) : 1,
+      limit ? Number.parseInt(limit, 10) : 10,
     );
   }
 
@@ -68,8 +68,8 @@ export class BookingController {
   ) {
     return this.bookingService.findBusinessBookings(
       businessId,
-      page ? parseInt(page, 10) : 1,
-      limit ? parseInt(limit, 10) : 10,
+      page ? Number.parseInt(page, 10) : 1,
+      limit ? Number.parseInt(limit, 10) : 10,
     );
   }
 

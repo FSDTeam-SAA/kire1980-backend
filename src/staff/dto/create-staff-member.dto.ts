@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform } from 'class-transformer';
 import {
   IsArray,
   IsEmail,
@@ -32,6 +32,32 @@ export class CreateStaffMemberDto {
   @IsNotEmpty()
   businessId: string;
 
+  @Transform(({ value }) => {
+    if (value === undefined || value === null || value === '') {
+      return undefined;
+    }
+
+    if (Array.isArray(value)) {
+      return value;
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+
+      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          return Array.isArray(parsed) ? parsed : [String(parsed)];
+        } catch {
+          return [trimmed];
+        }
+      }
+
+      return [trimmed];
+    }
+
+    return [String(value)];
+  })
   @IsArray()
   @IsMongoId({ each: true })
   @IsOptional()

@@ -7,11 +7,11 @@ import { CreatePaymentDto, PaymentType } from './dto/create-payment.dto';
 
 @Injectable()
 export class PaymentService {
-  private stripe: Stripe;
+  private readonly stripe: Stripe;
 
   constructor(
     @InjectModel(PaymentRecord.name)
-    private paymentModel: Model<PaymentDocument>,
+    private readonly paymentModel: Model<PaymentDocument>,
   ) {
     const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 
@@ -22,7 +22,7 @@ export class PaymentService {
     }
 
     this.stripe = new Stripe(stripeSecretKey, {
-      apiVersion: '2025-11-17.clover',
+      apiVersion: '2026-02-25.clover',
     });
   }
 

@@ -88,8 +88,8 @@ export class StaffService {
         'staff-avatars',
       );
       avatarData = {
-        url: uploadResult.secure_url,
-        publicId: uploadResult.public_id,
+        url: uploadResult.url,
+        publicId: uploadResult.publicId,
         uploadedAt: new Date(),
       };
     }
@@ -274,8 +274,8 @@ export class StaffService {
       );
 
       (updateStaffMemberDto as any).avatar = {
-        url: uploadResult.secure_url,
-        publicId: uploadResult.public_id,
+        url: uploadResult.url,
+        publicId: uploadResult.publicId,
         uploadedAt: new Date(),
       };
     }
