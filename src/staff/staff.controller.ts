@@ -18,6 +18,7 @@ import { Throttle } from '@nestjs/throttler';
 import { StaffService } from './staff.service';
 import { CreateStaffMemberDto } from './dto/create-staff-member.dto';
 import { UpdateStaffMemberDto } from './dto/update-staff-member.dto';
+import { AvailableStaffQueryDto } from './dto/available-staff-query.dto';
 import { AuthGuard } from '../common/guards/auth.guard';
 import { THROTTLER_CONFIG } from '../common/config/throttler.config';
 
@@ -125,5 +126,19 @@ export class StaffController {
   @UseGuards(AuthGuard)
   remove(@Param('id') id: string, @Request() req) {
     return this.staffService.remove(id, req.user.userId);
+  }
+}
+
+@Controller('services')
+@Throttle({ default: THROTTLER_CONFIG.RELAXED })
+export class ServiceStaffAvailabilityController {
+  constructor(private readonly staffService: StaffService) {}
+
+  @Get(':serviceId/available-staff')
+  findAvailableStaff(
+    @Param('serviceId') serviceId: string,
+    @Query() query: AvailableStaffQueryDto,
+  ) {
+    return this.staffService.findAvailableStaffForService(serviceId, query);
   }
 }

@@ -16,6 +16,21 @@ export class AvatarImage extends Document {
 
 export const AvatarImageSchema = SchemaFactory.createForClass(AvatarImage);
 
+@Schema({ _id: false })
+export class WorkingSchedule extends Document {
+  @Prop({ required: true, trim: true, lowercase: true })
+  day!: string;
+
+  @Prop({ required: true, trim: true })
+  from!: string;
+
+  @Prop({ required: true, trim: true })
+  to!: string;
+}
+
+export const WorkingScheduleSchema =
+  SchemaFactory.createForClass(WorkingSchedule);
+
 @Schema({
   timestamps: true,
   collection: 'staff_members',
@@ -50,6 +65,9 @@ export class StaffMember extends Document {
 
   @Prop({ trim: true })
   description?: string;
+
+  @Prop({ type: [WorkingScheduleSchema], default: [] })
+  schedule?: WorkingSchedule[];
 
   @Prop({ type: AvatarImageSchema })
   avatar?: AvatarImage;

@@ -1,7 +1,10 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { StaffService } from './staff.service';
-import { StaffController } from './staff.controller';
+import {
+  ServiceStaffAvailabilityController,
+  StaffController,
+} from './staff.controller';
 import {
   StaffMember,
   StaffMemberSchema,
@@ -11,6 +14,8 @@ import {
   ServiceSchema,
   AuthUser,
   AuthUserSchema,
+  Booking,
+  BookingSchema,
 } from '../database/schemas';
 import { CommonModule } from '../common/common.module';
 
@@ -21,10 +26,11 @@ import { CommonModule } from '../common/common.module';
       { name: BusinessInfo.name, schema: BusinessInfoSchema },
       { name: Service.name, schema: ServiceSchema },
       { name: AuthUser.name, schema: AuthUserSchema },
+      { name: Booking.name, schema: BookingSchema },
     ]),
     CommonModule,
   ],
-  controllers: [StaffController],
+  controllers: [StaffController, ServiceStaffAvailabilityController],
   providers: [StaffService],
   exports: [StaffService],
 })
