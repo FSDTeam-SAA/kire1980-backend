@@ -96,6 +96,11 @@ async function bootstrap() {
     }),
   );
 
+  // Allow all origins (CORS *)
+  app.enableCors({
+    origin: '*',
+  });
+
   nestLogger.log('Application is starting...', 'Bootstrap');
 
   await app.listen(process.env.PORT ?? 5000, '0.0.0.0');
