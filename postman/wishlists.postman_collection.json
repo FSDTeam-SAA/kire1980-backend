@@ -1,0 +1,110 @@
+{
+  "info": {
+    "name": "Kire1980 - Wishlists API",
+    "description": "Postman collection for wishlist endpoints.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "f3ce7607-c803-4a4f-a84b-8f64d5f4f7b9"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "businessId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Save business to wishlist",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/wishlists/business/{{businessId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["wishlists", "business", "{{businessId}}"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get my wishlist",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/wishlists/me",
+          "host": ["{{baseUrl}}"],
+          "path": ["wishlists", "me"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Remove business from wishlist",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/wishlists/business/{{businessId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["wishlists", "business", "{{businessId}}"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Check wishlist status",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/wishlists/business/{{businessId}}/status",
+          "host": ["{{baseUrl}}"],
+          "path": ["wishlists", "business", "{{businessId}}", "status"]
+        }
+      },
+      "response": []
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  }
+}

@@ -52,7 +52,7 @@ export class AuthService {
   async create(
     payload: CreateAuthDto,
     meta: { ip: string; userAgent: string; device?: string },
-  ): Promise<void> {
+  ): Promise<ILoginResponse> {
     const { email, password } = payload;
     const fullName = payload.fullName ?? payload.username;
     const { ip, userAgent, device } = meta;
@@ -173,6 +173,9 @@ export class AuthService {
     } finally {
       await session.endSession();
     }
+
+    // Auto-login after successful registration
+    return this.login({ email, password }, meta);
   }
 
   /**

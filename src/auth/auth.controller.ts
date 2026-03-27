@@ -41,7 +41,7 @@ export class AuthController {
   // Strict rate limit for registration: 5 requests per 15 minutes
   @Throttle({ default: THROTTLER_CONFIG.AUTH })
   @Post()
-  create(@Body() payload: CreateAuthDto, @Req() req: Request) {
+  async create(@Body() payload: CreateAuthDto, @Req() req: Request) {
     this.customLogger.log(
       `Registration attempt for email: ${payload.email}`,
       'AuthController',
@@ -60,7 +60,13 @@ export class AuthController {
           ? req.headers['sec-ch-ua-platform'][0]
           : req.headers['sec-ch-ua-platform']),
     };
-    return this.authService.create(payload, meta);
+    const result = await this.authService.create(payload, meta);
+
+    return {
+      success: true,
+      message: 'Registration and login successful',
+      data: result,
+    };
   }
 
   // ==========================================
