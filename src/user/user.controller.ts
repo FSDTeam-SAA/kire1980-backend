@@ -3,6 +3,7 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  Param,
   Body,
   Patch,
   Request,
@@ -21,6 +22,7 @@ import {
 } from '../common/decorators';
 import { User } from './entities/user.entity';
 import { AuthGuard } from '../common/guards/auth.guard';
+import { Types } from 'mongoose';
 
 @ApiTags('users')
 @Controller('user')
@@ -43,6 +45,24 @@ export class UserController {
   @Get('me')
   findMe(@Request() req: { user: { userId: string } }) {
     return this.userService.findOne(req.user.userId);
+  }
+
+  @ApiOperation({ summary: 'Get user by id (Admin or self)' })
+  @ApiResponseDecorator(200, 'User retrieved successfully', User)
+  @Get(':id')
+  findOneById(
+    @Param('id') id: string,
+    @Request() req: { user: { userId: string; role: string } },
+  ) {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Invalid user id format');
+    }
+
+    if (req.user.role !== 'admin' && req.user.userId !== id) {
+      throw new ForbiddenException('You can only access your own profile');
+    }
+
+    return this.userService.findOne(id);
   }
 
   @ApiOperation({ summary: 'Update my profile (supports avatar image)' })
@@ -83,5 +103,54 @@ export class UserController {
     @UploadedFile() avatar?: Express.Multer.File,
   ) {
     return this.userService.update(req.user.userId, updateUserDto, avatar);
+  }
+
+  @ApiOperation({ summary: 'Update user by id (Admin or self)' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'User profile fields and optional avatar image file',
+    schema: {
+      type: 'object',
+      properties: {
+        fullName: { type: 'string' },
+        phoneNumber: { type: 'string' },
+        country: { type: 'string' },
+        city: { type: 'string' },
+        postalCode: { type: 'number' },
+        sector: { type: 'string' },
+        avatar: { type: 'string', format: 'binary' },
+      },
+    },
+  })
+  @ApiResponseDecorator(200, 'User updated successfully', User)
+  @Patch(':id')
+  @UseInterceptors(
+    FileInterceptor('avatar', {
+      storage: memoryStorage(),
+      limits: { fileSize: 5 * 1024 * 1024 },
+      fileFilter: (req, file, cb) => {
+        if (!file.mimetype.startsWith('image/')) {
+          cb(new BadRequestException('Only image files are allowed'), false);
+          return;
+        }
+        cb(null, true);
+      },
+    }),
+  )
+  updateById(
+    @Param('id') id: string,
+    @Request() req: { user: { userId: string; role: string } },
+    @Body() updateUserDto: UpdateUserDto,
+    @UploadedFile() avatar?: Express.Multer.File,
+  ) {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Invalid user id format');
+    }
+
+    if (req.user.role !== 'admin' && req.user.userId !== id) {
+      throw new ForbiddenException('You can only update your own profile');
+    }
+
+    return this.userService.update(id, updateUserDto, avatar);
   }
 }
