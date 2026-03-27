@@ -5,11 +5,14 @@ import { EmailService } from './services/email.service';
 import { RedisService } from './services/redis.service';
 import { CustomLoggerService } from './services/custom-logger.service';
 import { CloudinaryService } from './services/cloudinary.service';
+import { AuthGuard } from './guards/auth.guard';
 import { QueueModule } from './modules/queue.module';
 import { DatabaseModule } from '../database/database.module';
 import {
   ActivityLogEvent,
   ActivityLogEventSchema,
+  AuthUser,
+  AuthUserSchema,
   EmailHistory,
   EmailHistorySchema,
 } from '../database/schemas';
@@ -19,6 +22,7 @@ import {
     DatabaseModule,
     MongooseModule.forFeature([
       { name: ActivityLogEvent.name, schema: ActivityLogEventSchema },
+      { name: AuthUser.name, schema: AuthUserSchema },
       { name: EmailHistory.name, schema: EmailHistorySchema },
     ]),
     QueueModule,
@@ -29,6 +33,7 @@ import {
     RedisService,
     CustomLoggerService,
     CloudinaryService,
+    AuthGuard,
   ],
   exports: [
     ActivityLogService,
@@ -36,6 +41,7 @@ import {
     RedisService,
     CustomLoggerService,
     CloudinaryService,
+    AuthGuard,
     MongooseModule,
     QueueModule,
   ],
