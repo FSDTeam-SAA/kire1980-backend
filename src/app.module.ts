@@ -18,6 +18,8 @@ import { WinstonModule } from 'nest-winston';
 import { winstonConfig } from './common/config/winston.config';
 import { LoggerModule } from './common/modules/logger.module';
 
+const isRateLimitEnabled = process.env.NODE_ENV !== 'development';
+
 @Module({
   imports: [
     // Load environment variables globally
@@ -33,8 +35,8 @@ import { LoggerModule } from './common/modules/logger.module';
     DatabaseModule,
     // Redis module (global - can be injected anywhere)
     RedisModule,
-    // Rate limiting module (global - throttles requests using Redis)
-    RateLimitModule,
+    // Rate limiting module (disabled in development mode for now)
+    ...(isRateLimitEnabled ? [RateLimitModule] : []),
     // Metrics module (global - Prometheus metrics)
     MetricsModule,
     // BlogModule,
