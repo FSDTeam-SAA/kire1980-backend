@@ -28,6 +28,20 @@ export class AuthUtilsService {
   constructor(private readonly redisService: RedisService) {}
 
   /**
+   * Auth-specific Redis rate limiting is enabled by default only in production.
+   * Set AUTH_RATE_LIMIT_ENABLED=true to force-enable in non-production.
+   */
+  private isAuthRateLimitEnabled(): boolean {
+    const explicitFlag = process.env.AUTH_RATE_LIMIT_ENABLED;
+
+    if (explicitFlag !== undefined) {
+      return explicitFlag.toLowerCase() === 'true';
+    }
+
+    return config.node_env.toLowerCase() === 'production';
+  }
+
+  /**
    * Generates a cryptographically secure random ID
    * Used for JTI (JWT ID) to prevent collisions
    */
@@ -195,6 +209,11 @@ export class AuthUtilsService {
     maxAttempts: number,
     windowMs: number,
   ): Promise<boolean> {
+    // Keep development/testing iteration smooth unless explicitly enabled.
+    if (!this.isAuthRateLimitEnabled()) {
+      return true;
+    }
+
     const cacheKey = `${config.redis_cache_key_prefix}:${AUTH_CONFIG.CACHE_PREFIXES.RATE_LIMIT}${key}`;
     const lockKey = `${cacheKey}:locked`;
 
