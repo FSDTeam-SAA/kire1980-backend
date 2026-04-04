@@ -84,7 +84,9 @@ export class ServiceService {
     const query: any = {};
 
     if (filters.businessId) {
-      query.businessId = new Types.ObjectId(filters.businessId);
+      query.businessId = {
+        $in: [filters.businessId, new Types.ObjectId(filters.businessId)],
+      };
     }
     if (filters.category) {
       query.category = filters.category;
@@ -128,7 +130,11 @@ export class ServiceService {
     }
 
     return this.serviceModel
-      .find({ businessId: new Types.ObjectId(businessId) })
+      .find({
+        businessId: {
+          $in: [businessId, new Types.ObjectId(businessId)],
+        },
+      })
       .sort({ createdAt: -1 })
       .exec();
   }
