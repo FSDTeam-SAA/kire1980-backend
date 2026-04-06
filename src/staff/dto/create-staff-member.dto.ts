@@ -21,30 +21,9 @@ export class WorkingScheduleDto {
   })
   day: string;
 
-  @IsString()
-  @IsNotEmpty()
-  @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/, {
-    message: 'from must be in HH:mm format',
-  })
-  from: string;
-
-  @IsString()
-  @IsNotEmpty()
-  @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/, {
-    message: 'to must be in HH:mm format',
-  })
-  to: string;
-}
-
-export class StaffExceptionScheduleDto {
-  @Type(() => Date)
-  @IsDate()
-  @IsNotEmpty()
-  date: Date;
-
   @IsBoolean()
   @IsOptional()
-  isAvailable?: boolean = false; // Default to false meaning they are off
+  isAvailable?: boolean = true;
 
   @IsString()
   @IsOptional()
@@ -59,10 +38,6 @@ export class StaffExceptionScheduleDto {
     message: 'to must be in HH:mm format',
   })
   to?: string;
-
-  @IsString()
-  @IsOptional()
-  reason?: string;
 }
 
 export class CreateStaffMemberDto {
@@ -131,10 +106,4 @@ export class CreateStaffMemberDto {
   @ValidateNested({ each: true })
   @Type(() => WorkingScheduleDto)
   schedule?: WorkingScheduleDto[];
-
-  @IsArray()
-  @IsOptional()
-  @ValidateNested({ each: true })
-  @Type(() => StaffExceptionScheduleDto)
-  exceptions?: StaffExceptionScheduleDto[];
 }

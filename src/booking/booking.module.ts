@@ -15,6 +15,7 @@ import {
   AuthUserSchema,
 } from '../database/schemas';
 import { CommonModule } from '../common/common.module';
+import { StaffModule } from '../staff/staff.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { CommonModule } from '../common/common.module';
       { name: AuthUser.name, schema: AuthUserSchema },
     ]),
     CommonModule,
+    StaffModule,
   ],
   controllers: [BookingController],
   providers: [BookingService],

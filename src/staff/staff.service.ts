@@ -117,7 +117,6 @@ export class StaffService {
         [],
       description: createStaffMemberDto.description,
       schedule: createStaffMemberDto.schedule,
-      exceptions: createStaffMemberDto.exceptions,
       avatar: avatarData,
     });
 
@@ -423,16 +422,11 @@ export class StaffService {
         isActive: true,
         isDeleted: false,
       })
-      .select('_id firstName lastName schedule exceptions')
+      .select('_id firstName lastName schedule')
       .lean();
 
     const scheduleMatchedStaff = staffAssignedToService.filter((staff: any) =>
-      this.isStaffAvailableOnDateTime(
-        staff.schedule,
-        staff.exceptions,
-        query.date,
-        query.time,
-      ),
+      this.isStaffScheduledForTime(staff.schedule, requestedDay, query.time),
     );
 
     if (!scheduleMatchedStaff.length) {
@@ -592,6 +586,11 @@ export class StaffService {
       return hours * 60 + minutes;
     }
 
+  private parseServiceDurationToMinutes(raw: string): number {
+    if (!raw) {
+      return 30;
+    }
+
     const hourMatch = /(\d+)\s*(hour|hours|hr|hrs|h)\b/.exec(raw);
     const minuteMatch = /(\d+)\s*(minute|minutes|min|mins|m)\b/.exec(raw);
 
@@ -602,71 +601,15 @@ export class StaffService {
     return total > 0 ? total : 30;
   }
 
-  private isStaffAvailableOnDateTime(
-    schedule: Array<{ day: string; from: string; to: string }> | undefined,
-    exceptions:
+  public isStaffScheduledForTime(
+    schedule:
       | Array<{
-          date: Date;
-          isAvailable: boolean;
+          day: string;
           from?: string;
           to?: string;
+          isAvailable?: boolean;
         }>
       | undefined,
-    requestedDate: string,
-    requestedTime: string,
-  ): boolean {
-    // 1. Check Exceptions first (e.g. sick leave, holidays)
-    if (Array.isArray(exceptions) && exceptions.length > 0) {
-      const requestedDateObj = new Date(requestedDate);
-      requestedDateObj.setHours(0, 0, 0, 0);
-
-      const exception = exceptions.find((ex) => {
-        const exDate = new Date(ex.date);
-        exDate.setHours(0, 0, 0, 0);
-        return exDate.getTime() === requestedDateObj.getTime();
-      });
-
-      if (exception) {
-        // If they are explicitly marked as not available on this specific date
-        if (!exception.isAvailable) {
-          return false;
-        }
-
-        // If they have special hours for this exception date
-        if (exception.from && exception.to) {
-          const requestedMinutes = this.timeToMinutes(requestedTime);
-          const fromMinutes = this.timeToMinutes(exception.from);
-          const toMinutes = this.timeToMinutes(exception.to);
-
-          if (
-            requestedMinutes === null ||
-            fromMinutes === null ||
-            toMinutes === null
-          ) {
-            return false;
-          }
-
-          return (
-            requestedMinutes >= fromMinutes && requestedMinutes < toMinutes
-          );
-        }
-
-        // If isAvailable is true but no times, they are available all day (unlikely but possible)
-        return true;
-      }
-    }
-
-    // 2. Fallback to Regular Weekly Schedule
-    const dateObj = new Date(requestedDate);
-    const requestedDay = dateObj
-      .toLocaleDateString('en-US', { weekday: 'long' })
-      .toLowerCase();
-
-    return this.isStaffScheduledForTime(schedule, requestedDay, requestedTime);
-  }
-
-  private isStaffScheduledForTime(
-    schedule: Array<{ day: string; from: string; to: string }> | undefined,
     requestedDay: string,
     requestedTime: string,
   ): boolean {
@@ -685,18 +628,31 @@ export class StaffService {
         return false;
       }
 
-      const fromMinutes = this.timeToMinutes(slot.from);
-      const toMinutes = this.timeToMinutes(slot.to);
-
-      if (fromMinutes === null || toMinutes === null) {
+      // If isAvailable is explicitly false, they are not working this day
+      if (slot.isAvailable === false) {
         return false;
       }
 
-      if (fromMinutes <= toMinutes) {
-        return requestedMinutes >= fromMinutes && requestedMinutes < toMinutes;
+      // If they are available (default), check if the requested time falls within from/to
+      if (slot.from && slot.to) {
+        const fromMinutes = this.timeToMinutes(slot.from);
+        const toMinutes = this.timeToMinutes(slot.to);
+
+        if (fromMinutes === null || toMinutes === null) {
+          return false;
+        }
+
+        if (fromMinutes <= toMinutes) {
+          return (
+            requestedMinutes >= fromMinutes && requestedMinutes < toMinutes
+          );
+        }
+
+        return requestedMinutes >= fromMinutes || requestedMinutes < toMinutes;
       }
 
-      return requestedMinutes >= fromMinutes || requestedMinutes < toMinutes;
+      // If isAvailable is true but no times provided, assume available
+      return true;
     });
   }
 
