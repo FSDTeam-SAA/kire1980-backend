@@ -586,11 +586,6 @@ export class StaffService {
       return hours * 60 + minutes;
     }
 
-  private parseServiceDurationToMinutes(raw: string): number {
-    if (!raw) {
-      return 30;
-    }
-
     const hourMatch = /(\d+)\s*(hour|hours|hr|hrs|h)\b/.exec(raw);
     const minuteMatch = /(\d+)\s*(minute|minutes|min|mins|m)\b/.exec(raw);
 
