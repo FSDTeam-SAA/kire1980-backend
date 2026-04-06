@@ -47,4 +47,21 @@ export class AdminController {
       data: bookingTrend,
     };
   }
+
+  @Get('top-businesses-by-payment')
+  async getTopBusinessesByPayment(@Request() req: { user: { role: string } }) {
+    if (req.user.role !== 'admin') {
+      throw new ForbiddenException(
+        'Only admin can access top businesses by payment',
+      );
+    }
+
+    const topBusinesses = await this.adminService.getTopBusinessesByPayment(3);
+
+    return {
+      success: true,
+      message: 'Top businesses by payment retrieved successfully',
+      data: topBusinesses,
+    };
+  }
 }

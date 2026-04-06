@@ -155,4 +155,93 @@ export class AdminService {
       yearly,
     };
   }
+
+  async getTopBusinessesByPayment(limit = 3) {
+    const safeLimit = Number.isInteger(limit) && limit > 0 ? limit : 3;
+
+    const topBusinesses = await this.bookingModel.aggregate<{
+      businessId: string;
+      businessName: string;
+      totalPayment: number;
+      totalBookings: number;
+    }>([
+      {
+        $match: {
+          isDeleted: false,
+        },
+      },
+      {
+        $unwind: '$services',
+      },
+      {
+        $lookup: {
+          from: 'services',
+          localField: 'services.serviceId',
+          foreignField: '_id',
+          as: 'serviceInfo',
+        },
+      },
+      {
+        $unwind: {
+          path: '$serviceInfo',
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $group: {
+          _id: '$businessId',
+          totalPayment: { $sum: { $ifNull: ['$serviceInfo.price', 0] } },
+          bookingIds: { $addToSet: '$_id' },
+        },
+      },
+      {
+        $lookup: {
+          from: 'business_info',
+          let: { businessId: '$_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ['$_id', '$$businessId'] },
+                deletedAt: null,
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                businessName: 1,
+              },
+            },
+          ],
+          as: 'businessInfo',
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          businessId: { $toString: '$_id' },
+          businessName: {
+            $ifNull: [
+              { $arrayElemAt: ['$businessInfo.businessName', 0] },
+              'N/A',
+            ],
+          },
+          totalPayment: 1,
+          totalBookings: { $size: '$bookingIds' },
+        },
+      },
+      {
+        $sort: {
+          totalPayment: -1,
+        },
+      },
+      {
+        $limit: safeLimit,
+      },
+    ]);
+
+    return {
+      limit: safeLimit,
+      topBusinesses,
+    };
+  }
 }
