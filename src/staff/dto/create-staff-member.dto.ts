@@ -1,4 +1,4 @@
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsArray,
   IsEmail,
@@ -7,7 +7,63 @@ import {
   IsOptional,
   IsString,
   MinLength,
+  ValidateNested,
+  Matches,
+  IsDate,
+  IsBoolean,
 } from 'class-validator';
+
+export class WorkingScheduleDto {
+  @IsString()
+  @IsNotEmpty()
+  @Matches(/^(monday|tuesday|wednesday|thursday|friday|saturday|sunday)$/i, {
+    message: 'Day must be a valid day of the week',
+  })
+  day: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/, {
+    message: 'from must be in HH:mm format',
+  })
+  from: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/, {
+    message: 'to must be in HH:mm format',
+  })
+  to: string;
+}
+
+export class StaffExceptionScheduleDto {
+  @Type(() => Date)
+  @IsDate()
+  @IsNotEmpty()
+  date: Date;
+
+  @IsBoolean()
+  @IsOptional()
+  isAvailable?: boolean = false; // Default to false meaning they are off
+
+  @IsString()
+  @IsOptional()
+  @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/, {
+    message: 'from must be in HH:mm format',
+  })
+  from?: string;
+
+  @IsString()
+  @IsOptional()
+  @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/, {
+    message: 'to must be in HH:mm format',
+  })
+  to?: string;
+
+  @IsString()
+  @IsOptional()
+  reason?: string;
+}
 
 export class CreateStaffMemberDto {
   @IsString()
@@ -69,4 +125,16 @@ export class CreateStaffMemberDto {
     message: 'Description must be at least 10 characters long',
   })
   description?: string;
+
+  @IsArray()
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => WorkingScheduleDto)
+  schedule?: WorkingScheduleDto[];
+
+  @IsArray()
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => StaffExceptionScheduleDto)
+  exceptions?: StaffExceptionScheduleDto[];
 }

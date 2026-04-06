@@ -116,6 +116,8 @@ export class StaffService {
         createStaffMemberDto.serviceIds?.map((id) => new Types.ObjectId(id)) ||
         [],
       description: createStaffMemberDto.description,
+      schedule: createStaffMemberDto.schedule,
+      exceptions: createStaffMemberDto.exceptions,
       avatar: avatarData,
     });
 
@@ -421,11 +423,16 @@ export class StaffService {
         isActive: true,
         isDeleted: false,
       })
-      .select('_id firstName lastName schedule')
+      .select('_id firstName lastName schedule exceptions')
       .lean();
 
     const scheduleMatchedStaff = staffAssignedToService.filter((staff: any) =>
-      this.isStaffScheduledForTime(staff.schedule, requestedDay, query.time),
+      this.isStaffAvailableOnDateTime(
+        staff.schedule,
+        staff.exceptions,
+        query.date,
+        query.time,
+      ),
     );
 
     if (!scheduleMatchedStaff.length) {
@@ -593,6 +600,69 @@ export class StaffService {
     const total = hours * 60 + minutes;
 
     return total > 0 ? total : 30;
+  }
+
+  private isStaffAvailableOnDateTime(
+    schedule: Array<{ day: string; from: string; to: string }> | undefined,
+    exceptions:
+      | Array<{
+          date: Date;
+          isAvailable: boolean;
+          from?: string;
+          to?: string;
+        }>
+      | undefined,
+    requestedDate: string,
+    requestedTime: string,
+  ): boolean {
+    // 1. Check Exceptions first (e.g. sick leave, holidays)
+    if (Array.isArray(exceptions) && exceptions.length > 0) {
+      const requestedDateObj = new Date(requestedDate);
+      requestedDateObj.setHours(0, 0, 0, 0);
+
+      const exception = exceptions.find((ex) => {
+        const exDate = new Date(ex.date);
+        exDate.setHours(0, 0, 0, 0);
+        return exDate.getTime() === requestedDateObj.getTime();
+      });
+
+      if (exception) {
+        // If they are explicitly marked as not available on this specific date
+        if (!exception.isAvailable) {
+          return false;
+        }
+
+        // If they have special hours for this exception date
+        if (exception.from && exception.to) {
+          const requestedMinutes = this.timeToMinutes(requestedTime);
+          const fromMinutes = this.timeToMinutes(exception.from);
+          const toMinutes = this.timeToMinutes(exception.to);
+
+          if (
+            requestedMinutes === null ||
+            fromMinutes === null ||
+            toMinutes === null
+          ) {
+            return false;
+          }
+
+          return (
+            requestedMinutes >= fromMinutes && requestedMinutes < toMinutes
+          );
+        }
+
+        // If isAvailable is true but no times, they are available all day (unlikely but possible)
+        return true;
+      }
+    }
+
+    // 2. Fallback to Regular Weekly Schedule
+    const dateObj = new Date(requestedDate);
+    const requestedDay = dateObj
+      .toLocaleDateString('en-US', { weekday: 'long' })
+      .toLowerCase();
+
+    return this.isStaffScheduledForTime(schedule, requestedDay, requestedTime);
   }
 
   private isStaffScheduledForTime(
