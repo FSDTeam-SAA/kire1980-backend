@@ -21,11 +21,14 @@ export class WorkingSchedule extends Document {
   @Prop({ required: true, trim: true, lowercase: true })
   day!: string;
 
-  @Prop({ required: true, trim: true })
-  from!: string;
+  @Prop({ required: true, default: true })
+  isAvailable!: boolean;
 
-  @Prop({ required: true, trim: true })
-  to!: string;
+  @Prop({ trim: true })
+  from?: string;
+
+  @Prop({ trim: true })
+  to?: string;
 }
 
 export const WorkingScheduleSchema =

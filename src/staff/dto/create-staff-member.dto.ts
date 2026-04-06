@@ -1,4 +1,4 @@
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsArray,
   IsEmail,
@@ -7,7 +7,38 @@ import {
   IsOptional,
   IsString,
   MinLength,
+  ValidateNested,
+  Matches,
+  IsDate,
+  IsBoolean,
 } from 'class-validator';
+
+export class WorkingScheduleDto {
+  @IsString()
+  @IsNotEmpty()
+  @Matches(/^(monday|tuesday|wednesday|thursday|friday|saturday|sunday)$/i, {
+    message: 'Day must be a valid day of the week',
+  })
+  day: string;
+
+  @IsBoolean()
+  @IsOptional()
+  isAvailable?: boolean = true;
+
+  @IsString()
+  @IsOptional()
+  @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/, {
+    message: 'from must be in HH:mm format',
+  })
+  from?: string;
+
+  @IsString()
+  @IsOptional()
+  @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/, {
+    message: 'to must be in HH:mm format',
+  })
+  to?: string;
+}
 
 export class CreateStaffMemberDto {
   @IsString()
@@ -69,4 +100,36 @@ export class CreateStaffMemberDto {
     message: 'Description must be at least 10 characters long',
   })
   description?: string;
+
+  @Transform(({ value }) => {
+    if (value === undefined || value === null || value === '') {
+      return undefined;
+    }
+
+    if (Array.isArray(value)) {
+      return value;
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+
+      if (
+        (trimmed.startsWith('[') && trimmed.endsWith(']')) ||
+        (trimmed.startsWith('{') && trimmed.endsWith('}'))
+      ) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          return Array.isArray(parsed) ? parsed : [parsed];
+        } catch {
+          return trimmed;
+        }
+      }
+    }
+    return value;
+  })
+  @IsArray()
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => WorkingScheduleDto)
+  schedule?: WorkingScheduleDto[];
 }

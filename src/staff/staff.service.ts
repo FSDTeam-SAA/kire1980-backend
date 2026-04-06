@@ -116,6 +116,7 @@ export class StaffService {
         createStaffMemberDto.serviceIds?.map((id) => new Types.ObjectId(id)) ||
         [],
       description: createStaffMemberDto.description,
+      schedule: createStaffMemberDto.schedule,
       avatar: avatarData,
     });
 
@@ -595,8 +596,15 @@ export class StaffService {
     return total > 0 ? total : 30;
   }
 
-  private isStaffScheduledForTime(
-    schedule: Array<{ day: string; from: string; to: string }> | undefined,
+  public isStaffScheduledForTime(
+    schedule:
+      | Array<{
+          day: string;
+          from?: string;
+          to?: string;
+          isAvailable?: boolean;
+        }>
+      | undefined,
     requestedDay: string,
     requestedTime: string,
   ): boolean {
@@ -615,18 +623,31 @@ export class StaffService {
         return false;
       }
 
-      const fromMinutes = this.timeToMinutes(slot.from);
-      const toMinutes = this.timeToMinutes(slot.to);
-
-      if (fromMinutes === null || toMinutes === null) {
+      // If isAvailable is explicitly false, they are not working this day
+      if (slot.isAvailable === false) {
         return false;
       }
 
-      if (fromMinutes <= toMinutes) {
-        return requestedMinutes >= fromMinutes && requestedMinutes < toMinutes;
+      // If they are available (default), check if the requested time falls within from/to
+      if (slot.from && slot.to) {
+        const fromMinutes = this.timeToMinutes(slot.from);
+        const toMinutes = this.timeToMinutes(slot.to);
+
+        if (fromMinutes === null || toMinutes === null) {
+          return false;
+        }
+
+        if (fromMinutes <= toMinutes) {
+          return (
+            requestedMinutes >= fromMinutes && requestedMinutes < toMinutes
+          );
+        }
+
+        return requestedMinutes >= fromMinutes || requestedMinutes < toMinutes;
       }
 
-      return requestedMinutes >= fromMinutes || requestedMinutes < toMinutes;
+      // If isAvailable is true but no times provided, assume available
+      return true;
     });
   }
 

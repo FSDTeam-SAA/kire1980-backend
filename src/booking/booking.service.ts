@@ -18,6 +18,7 @@ import {
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { UpdateBookingDto } from './dto/update-booking.dto';
 import { CustomLoggerService } from '../common/services/custom-logger.service';
+import { StaffService } from '../staff/staff.service';
 
 @Injectable()
 export class BookingService {
@@ -33,6 +34,7 @@ export class BookingService {
     @InjectModel(AuthUser.name)
     private readonly authUserModel: Model<AuthUser>,
     private readonly customLogger: CustomLoggerService,
+    private readonly staffService: StaffService,
   ) {}
 
   async create(userId: string, createBookingDto: CreateBookingDto) {
@@ -91,6 +93,28 @@ export class BookingService {
       ) {
         throw new BadRequestException(
           `Selected provider ${bookingItem.selectedProvider} is not assigned to service ${bookingItem.serviceId}`,
+        );
+      }
+
+      // Check Staff Availability (Schedule)
+      const bookingDate = new Date(bookingItem.dateAndTime);
+      const requestedDayStr = bookingDate
+        .toLocaleDateString('en-US', { weekday: 'long' })
+        .toLowerCase();
+      const requestedTimeStr = bookingDate
+        .toTimeString()
+        .split(' ')[0]
+        .slice(0, 5); // HH:mm
+
+      const isAvailable = this.staffService.isStaffScheduledForTime(
+        staffMember.schedule,
+        requestedDayStr,
+        requestedTimeStr,
+      );
+
+      if (!isAvailable) {
+        throw new ConflictException(
+          `Staff member ${staffMember.firstName} is not available on ${requestedDayStr} at ${requestedTimeStr}`,
         );
       }
 
