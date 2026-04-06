@@ -2,6 +2,7 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  Query,
   Request,
   UseGuards,
 } from '@nestjs/common';
@@ -25,6 +26,25 @@ export class AdminController {
       success: true,
       message: 'Dashboard overview retrieved successfully',
       data: overview,
+    };
+  }
+
+  @Get('bookings-trend')
+  async getBookingsTrend(
+    @Request() req: { user: { role: string } },
+    @Query('year') year?: string,
+  ) {
+    if (req.user.role !== 'admin') {
+      throw new ForbiddenException('Only admin can access booking trends');
+    }
+
+    const parsedYear = year ? Number(year) : undefined;
+    const bookingTrend = await this.adminService.getBookingTrends(parsedYear);
+
+    return {
+      success: true,
+      message: 'Booking trend data retrieved successfully',
+      data: bookingTrend,
     };
   }
 }

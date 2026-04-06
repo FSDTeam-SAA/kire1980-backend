@@ -56,4 +56,103 @@ export class AdminService {
       totalServices,
     };
   }
+
+  async getBookingTrends(year?: number) {
+    const currentYear = new Date().getFullYear();
+    const selectedYear =
+      typeof year === 'number' && Number.isInteger(year) && year > 0
+        ? year
+        : currentYear;
+
+    const startOfYear = new Date(selectedYear, 0, 1, 0, 0, 0, 0);
+    const endOfYear = new Date(selectedYear + 1, 0, 1, 0, 0, 0, 0);
+
+    const monthlyRaw = await this.bookingModel.aggregate<{
+      _id: { month: number };
+      totalBookings: number;
+    }>([
+      {
+        $match: {
+          isDeleted: false,
+          createdAt: { $gte: startOfYear, $lt: endOfYear },
+        },
+      },
+      {
+        $group: {
+          _id: { month: { $month: '$createdAt' } },
+          totalBookings: { $sum: 1 },
+        },
+      },
+      { $sort: { '_id.month': 1 } },
+    ]);
+
+    const monthlyCountMap = new Map<number, number>(
+      monthlyRaw.map((item) => [item._id.month, item.totalBookings]),
+    );
+
+    const monthNames = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
+    const monthly = Array.from({ length: 12 }, (_, index) => {
+      const month = index + 1;
+      return {
+        month,
+        monthName: monthNames[index],
+        totalBookings: monthlyCountMap.get(month) ?? 0,
+      };
+    });
+
+    const startYear = currentYear - 4;
+    const yearlyRaw = await this.bookingModel.aggregate<{
+      _id: { year: number };
+      totalBookings: number;
+    }>([
+      {
+        $match: {
+          isDeleted: false,
+          createdAt: {
+            $gte: new Date(startYear, 0, 1),
+            $lt: new Date(currentYear + 1, 0, 1),
+          },
+        },
+      },
+      {
+        $group: {
+          _id: { year: { $year: '$createdAt' } },
+          totalBookings: { $sum: 1 },
+        },
+      },
+      { $sort: { '_id.year': 1 } },
+    ]);
+
+    const yearlyCountMap = new Map<number, number>(
+      yearlyRaw.map((item) => [item._id.year, item.totalBookings]),
+    );
+
+    const yearly = Array.from({ length: 5 }, (_, index) => {
+      const targetYear = startYear + index;
+      return {
+        year: targetYear,
+        totalBookings: yearlyCountMap.get(targetYear) ?? 0,
+      };
+    });
+
+    return {
+      selectedYear,
+      monthly,
+      yearly,
+    };
+  }
 }
