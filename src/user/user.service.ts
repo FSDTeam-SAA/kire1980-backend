@@ -60,7 +60,7 @@ export class UserService {
       'businessId',
       'email',
     ];
-    
+
     if (actorRole !== 'admin') {
       forbiddenFields.push('role', 'status');
     }
@@ -82,7 +82,10 @@ export class UserService {
       updateUserDto.avatar = uploadedAvatar.url;
     }
 
-    const safePayload = this.buildSafeProfileUpdatePayload(updateUserDto, actorRole);
+    const safePayload = this.buildSafeProfileUpdatePayload(
+      updateUserDto,
+      actorRole,
+    );
 
     const user = await this.userModel
       .findByIdAndUpdate(
@@ -113,7 +116,7 @@ export class UserService {
       'sector',
       'avatar',
     ];
-    
+
     if (actorRole === 'admin') {
       allowedFields.push('status', 'role');
     }

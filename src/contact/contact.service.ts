@@ -40,8 +40,14 @@ export class ContactService {
   }
 
   async findAll(queryDto: ContactQueryDto) {
-    const { page = 1, limit = 10, search, sortBy = 'createdAt', sortOrder = 'desc' } = queryDto;
-    
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+    } = queryDto;
+
     const query: any = {};
     if (search) {
       query.$or = [

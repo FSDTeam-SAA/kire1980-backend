@@ -30,6 +30,8 @@ export class CreateAuthDto {
 
   @IsOptional()
   @IsString()
-  @IsIn(['customer', 'businessowner'], { message: 'role must be either customer or businessowner' })
+  @IsIn(['customer', 'businessowner'], {
+    message: 'role must be either customer or businessowner',
+  })
   role?: string;
 }

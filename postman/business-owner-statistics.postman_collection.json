@@ -1,0 +1,99 @@
+{
+  "info": {
+    "name": "Kire1980 - Business Owner Statistics API",
+    "description": "Postman collection for the business owner statistics endpoint.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "d8d8dc8b-4bb2-4c4f-aea2-4a3c79d0f2bf"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Get My Business Statistics",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/businesses/me/statistics",
+          "host": ["{{baseUrl}}"],
+          "path": ["businesses", "me", "statistics"]
+        },
+        "description": "Returns new customers, today's bookings, monthly revenue, and average rating for the authenticated business owner."
+      },
+      "response": []
+    },
+    {
+      "name": "Get My Staff Dashboard Statistics",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/staff/me/dashboard-statistics",
+          "host": ["{{baseUrl}}"],
+          "path": ["staff", "me", "dashboard-statistics"]
+        },
+        "description": "Returns staff metrics for the authenticated business owner: total staff, currently on duty, and total bookings.\n\nResponse fields:\n- totalStaff: Total number of non-deleted staff in the owner business\n- currentlyOnDuty: Number of active staff currently serving ongoing bookings\n- totalBookings: Total number of non-deleted bookings in the owner business"
+      },
+      "response": [
+        {
+          "name": "200 OK - Staff Dashboard Statistics",
+          "originalRequest": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/staff/me/dashboard-statistics",
+              "host": ["{{baseUrl}}"],
+              "path": ["staff", "me", "dashboard-statistics"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"totalStaff\": 12,\n  \"currentlyOnDuty\": 4,\n  \"totalBookings\": 186\n}"
+        }
+      ]
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  }
+}

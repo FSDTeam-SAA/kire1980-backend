@@ -227,6 +227,144 @@ export class StaffService {
     };
   }
 
+  async getBusinessOwnerDashboardStatistics(ownerId: string): Promise<{
+    totalStaff: number;
+    currentlyOnDuty: number;
+    totalBookings: number;
+  }> {
+    const business = await this.businessModel
+      .findOne({ ownerId, deletedAt: null })
+      .select('_id')
+      .lean();
+
+    if (!business) {
+      throw new NotFoundException('Business not found for this user');
+    }
+
+    const businessObjectId =
+      business._id instanceof Types.ObjectId
+        ? business._id
+        : new Types.ObjectId(business._id as string);
+
+    const now = new Date();
+
+    const activeBookingStatuses = [
+      BookingStatus.PENDING,
+      BookingStatus.CONFIRMED,
+      BookingStatus.IN_PROGRESS,
+    ];
+
+    const [totalStaff, totalBookings, bookingItems] = await Promise.all([
+      this.staffModel.countDocuments({
+        businessId: businessObjectId,
+        isDeleted: false,
+      }),
+      this.bookingModel.countDocuments({
+        businessId: businessObjectId,
+        isDeleted: false,
+      }),
+      this.bookingModel.aggregate<{
+        selectedProvider: Types.ObjectId;
+        serviceId: Types.ObjectId;
+        dateAndTime: Date;
+      }>([
+        {
+          $match: {
+            businessId: businessObjectId,
+            isDeleted: false,
+            bookingStatus: { $in: activeBookingStatuses },
+            services: {
+              $elemMatch: {
+                dateAndTime: { $lte: now },
+              },
+            },
+          },
+        },
+        { $unwind: '$services' },
+        {
+          $match: {
+            'services.dateAndTime': { $lte: now },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            selectedProvider: '$services.selectedProvider',
+            serviceId: '$services.serviceId',
+            dateAndTime: '$services.dateAndTime',
+          },
+        },
+      ]),
+    ]);
+
+    if (!bookingItems.length) {
+      return {
+        totalStaff,
+        currentlyOnDuty: 0,
+        totalBookings,
+      };
+    }
+
+    const uniqueServiceIds = [
+      ...new Set(bookingItems.map((item) => item.serviceId.toString())),
+    ];
+
+    const services = await this.serviceModel
+      .find({ _id: { $in: uniqueServiceIds } })
+      .select('_id serviceDuration')
+      .lean();
+
+    const serviceDurationMap = new Map<string, number>(
+      services.map((service) => [
+        service._id.toString(),
+        this.parseServiceDurationToMinutes(service.serviceDuration),
+      ]),
+    );
+
+    const candidateStaffIds = [
+      ...new Set(bookingItems.map((item) => item.selectedProvider.toString())),
+    ];
+
+    const activeStaff = await this.staffModel
+      .find({
+        _id: { $in: candidateStaffIds },
+        businessId: businessObjectId,
+        isDeleted: false,
+        isActive: true,
+      })
+      .select('_id')
+      .lean();
+
+    const activeStaffIdSet = new Set(
+      activeStaff.map((staff) => staff._id.toString()),
+    );
+
+    const onDutyStaffIdSet = new Set<string>();
+
+    for (const bookingItem of bookingItems) {
+      const staffId = bookingItem.selectedProvider.toString();
+
+      if (!activeStaffIdSet.has(staffId)) {
+        continue;
+      }
+
+      const start = new Date(bookingItem.dateAndTime);
+      const durationMinutes =
+        serviceDurationMap.get(bookingItem.serviceId.toString()) ?? 30;
+      const end = new Date(start.getTime() + durationMinutes * 60 * 1000);
+
+      if (start <= now && now < end) {
+        onDutyStaffIdSet.add(staffId);
+      }
+    }
+
+    return {
+      totalStaff,
+      currentlyOnDuty: onDutyStaffIdSet.size,
+      totalBookings,
+    };
+  }
+
   async update(
     id: string,
     userId: string,

@@ -186,7 +186,7 @@ export class AuthController {
     @Query('error') error: string,
     @Query('error_description') errorDescription: string,
     @Req() req: Request,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
     @Res({ passthrough: true }) res: Response,
   ) {
     // Handle OAuth errors

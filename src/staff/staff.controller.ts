@@ -12,6 +12,7 @@ import {
   UseInterceptors,
   UploadedFile,
 } from '@nestjs/common';
+import type { Request as ExpressRequest } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { Throttle } from '@nestjs/throttler';
@@ -21,6 +22,14 @@ import { UpdateStaffMemberDto } from './dto/update-staff-member.dto';
 import { AvailableStaffQueryDto } from './dto/available-staff-query.dto';
 import { AuthGuard } from '../common/guards/auth.guard';
 import { THROTTLER_CONFIG } from '../common/config/throttler.config';
+
+interface AuthenticatedRequest extends ExpressRequest {
+  user: {
+    userId: string;
+    role: string;
+    tokenVersion: number;
+  };
+}
 
 @Controller('staff')
 @Throttle({ default: THROTTLER_CONFIG.RELAXED })
@@ -42,7 +51,7 @@ export class StaffController {
     }),
   )
   create(
-    @Request() req,
+    @Request() req: AuthenticatedRequest,
     @Body() createStaffMemberDto: CreateStaffMemberDto,
     @UploadedFile() file?: Express.Multer.File,
   ) {
@@ -83,6 +92,15 @@ export class StaffController {
     );
   }
 
+  @Get('me/dashboard-statistics')
+  @UseGuards(AuthGuard)
+  getBusinessOwnerDashboardStatistics(@Request() req: AuthenticatedRequest) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+    return this.staffService.getBusinessOwnerDashboardStatistics(
+      req.user.userId,
+    );
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.staffService.findOne(id);
@@ -104,7 +122,7 @@ export class StaffController {
   )
   update(
     @Param('id') id: string,
-    @Request() req,
+    @Request() req: AuthenticatedRequest,
     @Body() updateStaffMemberDto: UpdateStaffMemberDto,
     @UploadedFile() file?: Express.Multer.File,
   ) {
@@ -118,13 +136,16 @@ export class StaffController {
 
   @Patch(':id/toggle-status')
   @UseGuards(AuthGuard)
-  toggleActiveStatus(@Param('id') id: string, @Request() req) {
+  toggleActiveStatus(
+    @Param('id') id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
     return this.staffService.toggleActiveStatus(id, req.user.userId);
   }
 
   @Delete(':id')
   @UseGuards(AuthGuard)
-  remove(@Param('id') id: string, @Request() req) {
+  remove(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
     return this.staffService.remove(id, req.user.userId);
   }
 }

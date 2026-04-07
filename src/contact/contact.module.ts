@@ -1,6 +1,9 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { ContactInquiry, ContactInquirySchema } from '../database/schemas/contact-inquiry.schema';
+import {
+  ContactInquiry,
+  ContactInquirySchema,
+} from '../database/schemas/contact-inquiry.schema';
 import { ContactService } from './contact.service';
 import { ContactController } from './contact.controller';
 import { CommonModule } from '../common/common.module';

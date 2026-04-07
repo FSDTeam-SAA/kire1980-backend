@@ -102,7 +102,12 @@ export class UserController {
     @Body() updateUserDto: UpdateUserDto,
     @UploadedFile() avatar?: Express.Multer.File,
   ) {
-    return this.userService.update(req.user.userId, updateUserDto, avatar, req.user.role);
+    return this.userService.update(
+      req.user.userId,
+      updateUserDto,
+      avatar,
+      req.user.role,
+    );
   }
 
   @ApiOperation({ summary: 'Update user by id (Admin or self)' })

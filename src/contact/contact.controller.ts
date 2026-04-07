@@ -52,7 +52,9 @@ export class ContactController {
     @Request() req: { user: { role: string } },
   ) {
     if (req.user.role !== 'admin') {
-      throw new ForbiddenException('Only admin can view contact inquiry details');
+      throw new ForbiddenException(
+        'Only admin can view contact inquiry details',
+      );
     }
     return this.contactService.findOne(contactId);
   }

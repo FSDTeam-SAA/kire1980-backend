@@ -19,4 +19,5 @@ export class ContactInquiry extends Document {
   updatedAt: Date;
 }
 
-export const ContactInquirySchema = SchemaFactory.createForClass(ContactInquiry);
+export const ContactInquirySchema =
+  SchemaFactory.createForClass(ContactInquiry);

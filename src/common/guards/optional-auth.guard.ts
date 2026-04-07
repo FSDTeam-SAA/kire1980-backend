@@ -1,8 +1,4 @@
-import {
-  CanActivate,
-  ExecutionContext,
-  Injectable,
-} from '@nestjs/common';
+import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import type { Request } from 'express';
 import * as jwt from 'jsonwebtoken';
 import config from '../config/app.config';
@@ -77,7 +73,7 @@ export class OptionalAuthGuard implements CanActivate {
       // Cache for 1 hour
       await this.redisService.set(cacheKey, user.tokenVersion, 3600);
 
-      return user.tokenVersion as number;
+      return user.tokenVersion;
     } catch (error) {
       return null;
     }
