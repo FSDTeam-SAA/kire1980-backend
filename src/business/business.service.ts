@@ -5,12 +5,15 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
-import { Connection, Model } from 'mongoose';
+import { Connection, Model, Types } from 'mongoose';
 import {
   AuthUser,
   BusinessInfo,
   BusinessStatus,
   BusinessVerification,
+  Service,
+  StaffMember,
+  ReviewRating,
 } from '../database/schemas';
 import { CreateBusinessDto } from './dto/create-business.dto';
 import { CustomLoggerService } from '../common/services/custom-logger.service';
@@ -23,6 +26,12 @@ export class BusinessService {
     private readonly businessModel: Model<BusinessInfo>,
     @InjectModel(AuthUser.name)
     private readonly authUserModel: Model<AuthUser>,
+    @InjectModel(Service.name)
+    private readonly serviceModel: Model<Service>,
+    @InjectModel(StaffMember.name)
+    private readonly staffModel: Model<StaffMember>,
+    @InjectModel(ReviewRating.name)
+    private readonly reviewModel: Model<ReviewRating>,
     private readonly customLogger: CustomLoggerService,
     private readonly cloudinaryService: CloudinaryService,
     @InjectConnection()
@@ -141,6 +150,64 @@ export class BusinessService {
     }
 
     return business;
+  }
+
+  async getBusinessById(businessId: string): Promise<Record<string, unknown>> {
+    if (!Types.ObjectId.isValid(businessId)) {
+      throw new BadRequestException('Invalid business ID');
+    }
+
+    const business = await this.businessModel
+      .findOne({ _id: businessId, deletedAt: null })
+      .populate('ownerId', 'fullName email role')
+      .lean();
+
+    if (!business) {
+      throw new NotFoundException('Business not found');
+    }
+
+    const businessObjectId = new Types.ObjectId(businessId);
+
+    // Fetch services, staff, and reviews in parallel
+    const [services, staff, reviews] = await Promise.all([
+      this.serviceModel
+        .find({ businessId: businessObjectId, isActive: true })
+        .select('serviceName category price serviceDuration averageRating serviceImages isFeatured')
+        .lean(),
+
+      this.staffModel
+        .find({ businessId: businessObjectId, isDeleted: false, isActive: true })
+        .select('firstName lastName email phoneNumber description avatar schedule serviceIds')
+        .populate('serviceIds', 'serviceName category')
+        .lean(),
+
+      this.reviewModel
+        .find({ businessId: businessObjectId, isDeleted: false })
+        .select('rating review userId createdAt')
+        .populate('userId', 'fullName')
+        .lean(),
+    ]);
+
+    // Compute aggregate rating
+    const averageRating =
+      reviews.length > 0
+        ? Number.parseFloat(
+            (
+              reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+            ).toFixed(1),
+          )
+        : 0;
+
+    return {
+      ...business,
+      services,
+      staff,
+      reviews,
+      averageRating,
+      totalReviews: reviews.length,
+      totalServices: services.length,
+      totalStaffMembers: staff.length,
+    };
   }
 
   async activateBusiness(businessId: string, actorRole: string) {

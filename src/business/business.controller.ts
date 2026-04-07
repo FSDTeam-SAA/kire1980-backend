@@ -66,7 +66,14 @@ export class BusinessController {
     return this.businessService.getMyBusiness(req.user.userId);
   }
 
-  // 4) Activate business (admin only)
+  // 4) Get a single business by ID with populated data (public)
+  @Get(':id')
+  @UseGuards() // no guard — public endpoint
+  getBusinessById(@Param('id') id: string) {
+    return this.businessService.getBusinessById(id);
+  }
+
+  // 5) Activate business (admin only)
   @Patch(':id/activate')
   activateBusiness(
     @Param('id') businessId: string,
