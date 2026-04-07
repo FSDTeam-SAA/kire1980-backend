@@ -110,7 +110,7 @@ export class AuthService {
             email,
             fullName,
             password: hashedPassword,
-            role: 'customer',
+            role: payload.role || 'customer',
             verified: true,
             status: 'ACTIVE',
             provider: 'local',
@@ -140,7 +140,7 @@ export class AuthService {
         {
           email,
           fullName,
-          role: 'customer',
+          role: payload.role || 'customer',
           status: 'ACTIVE',
           verified: 'true',
           provider: 'local',
