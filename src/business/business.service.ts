@@ -20,10 +20,8 @@ import {
 import { CreateBusinessDto } from './dto/create-business.dto';
 import { CustomLoggerService } from '../common/services/custom-logger.service';
 import { CloudinaryService } from '../common/services/cloudinary.service';
-import {
-  PaginationDto,
-  createPaginatedResponse,
-} from '../common/decorators/api-pagination.decorator';
+import { createPaginatedResponse } from '../common/decorators/api-pagination.decorator';
+import { BusinessQueryDto } from './dto/business-query.dto';
 
 @Injectable()
 export class BusinessService {
@@ -271,13 +269,17 @@ export class BusinessService {
     }
   }
 
-  async getAllBusinesses(query: PaginationDto, user?: { role: string }) {
+  async getAllBusinesses(query: BusinessQueryDto, user?: { role: string }) {
     const {
       page = 1,
       limit = 10,
       search,
       sortBy = 'createdAt',
       sortOrder = 'desc',
+      city,
+      country,
+      postalCode,
+      zipCode,
     } = query;
 
     const filter: any = {
@@ -295,6 +297,19 @@ export class BusinessService {
         { businessEmail: { $regex: search, $options: 'i' } },
         { businessCategory: { $regex: search, $options: 'i' } },
       ];
+    }
+
+    if (city) {
+      filter.city = { $regex: city, $options: 'i' };
+    }
+
+    if (country) {
+      filter.country = { $regex: country, $options: 'i' };
+    }
+
+    const resolvedPostalCode = postalCode ?? zipCode;
+    if (resolvedPostalCode !== undefined) {
+      filter.postalCode = resolvedPostalCode;
     }
 
     const skip = (page - 1) * limit;

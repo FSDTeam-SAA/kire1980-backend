@@ -8,13 +8,22 @@ import {
   Delete,
   Query,
   UseGuards,
-  Request,
+  Req,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { BookingService } from './booking.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { UpdateBookingDto } from './dto/update-booking.dto';
 import { AuthGuard } from '../common/guards/auth.guard';
 import { BookingStatus } from '../database/schemas/booking.schema';
+
+interface AuthenticatedRequest extends Request {
+  user: {
+    userId: string;
+    role: string;
+    tokenVersion: number;
+  };
+}
 
 @Controller('bookings')
 export class BookingController {
@@ -22,26 +31,34 @@ export class BookingController {
 
   @Post()
   @UseGuards(AuthGuard)
-  create(@Request() req, @Body() createBookingDto: CreateBookingDto) {
+  create(
+    @Req() req: AuthenticatedRequest,
+    @Body() createBookingDto: CreateBookingDto,
+  ) {
     return this.bookingService.create(req.user.userId, createBookingDto);
   }
 
   @Get()
   @UseGuards(AuthGuard)
   findAll(
-    @Request() req,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('userId') userId?: string,
     @Query('businessId') businessId?: string,
     @Query('status') status?: BookingStatus,
+    @Query() query?: Record<string, string>,
   ) {
+    const title = query?.title;
+    const serviceTitle = query?.serviceTitle;
+
     return this.bookingService.findAll(
       page ? Number.parseInt(page, 10) : 1,
       limit ? Number.parseInt(limit, 10) : 10,
       userId,
       businessId,
       status,
+      title,
+      serviceTitle,
     );
   }
 
@@ -83,7 +100,7 @@ export class BookingController {
   @UseGuards(AuthGuard)
   update(
     @Param('id') id: string,
-    @Request() req,
+    @Req() req: AuthenticatedRequest,
     @Body() updateBookingDto: UpdateBookingDto,
   ) {
     return this.bookingService.update(id, req.user.userId, updateBookingDto);
@@ -93,7 +110,7 @@ export class BookingController {
   @UseGuards(AuthGuard)
   cancel(
     @Param('id') id: string,
-    @Request() req,
+    @Req() req: AuthenticatedRequest,
     @Body('cancellationReason') cancellationReason?: string,
   ) {
     return this.bookingService.cancelBooking(
@@ -105,13 +122,13 @@ export class BookingController {
 
   @Patch(':id/complete')
   @UseGuards(AuthGuard)
-  complete(@Param('id') id: string, @Request() req) {
+  complete(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
     return this.bookingService.completeBooking(id, req.user.userId);
   }
 
   @Delete(':id')
   @UseGuards(AuthGuard)
-  remove(@Param('id') id: string, @Request() req) {
+  remove(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
     return this.bookingService.remove(id, req.user.userId);
   }
 }

@@ -6,7 +6,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { FilterQuery, Model, Types } from 'mongoose';
 import {
   Booking,
   BookingStatus,
@@ -166,7 +166,7 @@ export class BookingService {
     });
 
     this.customLogger.log(
-      `Booking ${booking._id} created by user ${userId}`,
+      `Booking ${booking._id.toString()} created by user ${userId}`,
       BookingService.name,
     );
 
@@ -179,8 +179,10 @@ export class BookingService {
     userId?: string,
     businessId?: string,
     status?: BookingStatus,
+    title?: string,
+    serviceTitle?: string,
   ) {
-    const filter: any = { isDeleted: false };
+    const filter: FilterQuery<Booking> = { isDeleted: false };
 
     if (userId) {
       filter.userId = new Types.ObjectId(userId);
@@ -190,8 +192,58 @@ export class BookingService {
       filter.businessId = new Types.ObjectId(businessId);
     }
 
+    if (title?.trim()) {
+      const matchedBusinesses = await this.businessModel
+        .find({
+          businessName: { $regex: title.trim(), $options: 'i' },
+        })
+        .select('_id')
+        .lean();
+
+      if (matchedBusinesses.length === 0) {
+        return {
+          data: [],
+          meta: {
+            total: 0,
+            page,
+            limit,
+            totalPages: 0,
+          },
+        };
+      }
+
+      filter.businessId = {
+        $in: matchedBusinesses.map((business) => business._id),
+      };
+    }
+
     if (status) {
       filter.bookingStatus = status;
+    }
+
+    if (serviceTitle?.trim()) {
+      const matchedServices = await this.serviceModel
+        .find({
+          serviceName: { $regex: serviceTitle.trim(), $options: 'i' },
+        })
+        .select('_id')
+        .lean();
+
+      if (matchedServices.length === 0) {
+        return {
+          data: [],
+          meta: {
+            total: 0,
+            page,
+            limit,
+            totalPages: 0,
+          },
+        };
+      }
+
+      (filter as Record<string, unknown>)['services.serviceId'] = {
+        $in: matchedServices.map((service) => service._id),
+      };
     }
 
     const skip = (page - 1) * limit;

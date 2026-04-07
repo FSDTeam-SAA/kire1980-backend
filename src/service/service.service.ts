@@ -80,6 +80,7 @@ export class ServiceService {
     category?: string;
     isActive?: boolean;
     isFeatured?: boolean;
+    searchTitle?: string;
   }) {
     const query: any = {};
 
@@ -96,6 +97,9 @@ export class ServiceService {
     }
     if (filters.isFeatured !== undefined) {
       query.isFeatured = filters.isFeatured;
+    }
+    if (filters.searchTitle?.trim()) {
+      query.serviceName = { $regex: filters.searchTitle.trim(), $options: 'i' };
     }
 
     return this.serviceModel

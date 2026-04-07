@@ -138,3 +138,9 @@ export class BusinessInfo extends Document {
 }
 
 export const BusinessInfoSchema = SchemaFactory.createForClass(BusinessInfo);
+
+// Indexes for search/filter performance
+BusinessInfoSchema.index({ city: 1 });
+BusinessInfoSchema.index({ country: 1 });
+BusinessInfoSchema.index({ postalCode: 1 });
+BusinessInfoSchema.index({ country: 1, city: 1, postalCode: 1 });

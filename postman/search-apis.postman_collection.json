@@ -1,0 +1,303 @@
+{
+  "info": {
+    "name": "Kire1980 - Search APIs",
+    "description": "Postman collection for booking, service, and business search endpoints.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "2db2ef97-79c7-40d3-8c97-7ace15c167bb"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "businessId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Bookings Search",
+      "item": [
+        {
+          "name": "Search bookings by business title",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/bookings?page=1&limit=10&title=Salon",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "title",
+                  "value": "Salon"
+                }
+              ]
+            },
+            "description": "Searches bookings by business title (businessName)."
+          },
+          "response": []
+        },
+        {
+          "name": "Search bookings by service title",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/bookings?page=1&limit=10&serviceTitle=Haircut",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "serviceTitle",
+                  "value": "Haircut"
+                }
+              ]
+            },
+            "description": "Searches bookings by service title (serviceName)."
+          },
+          "response": []
+        },
+        {
+          "name": "Search bookings by title + service title",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/bookings?page=1&limit=10&title=Salon&serviceTitle=Haircut",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "title",
+                  "value": "Salon"
+                },
+                {
+                  "key": "serviceTitle",
+                  "value": "Haircut"
+                }
+              ]
+            },
+            "description": "Combines business title and service title filters for bookings."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Services Search",
+      "item": [
+        {
+          "name": "Search services by title",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/services?title=Haircut",
+              "host": ["{{baseUrl}}"],
+              "path": ["services"],
+              "query": [
+                {
+                  "key": "title",
+                  "value": "Haircut"
+                }
+              ]
+            },
+            "description": "Searches services by title using the title query parameter."
+          },
+          "response": []
+        },
+        {
+          "name": "Search services by serviceTitle",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/services?serviceTitle=Massage",
+              "host": ["{{baseUrl}}"],
+              "path": ["services"],
+              "query": [
+                {
+                  "key": "serviceTitle",
+                  "value": "Massage"
+                }
+              ]
+            },
+            "description": "Searches services by title using the serviceTitle query parameter."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Businesses Search",
+      "item": [
+        {
+          "name": "Search businesses by city",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/businesses?city=Dhaka",
+              "host": ["{{baseUrl}}"],
+              "path": ["businesses"],
+              "query": [
+                {
+                  "key": "city",
+                  "value": "Dhaka"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Search businesses by country",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/businesses?country=Bangladesh",
+              "host": ["{{baseUrl}}"],
+              "path": ["businesses"],
+              "query": [
+                {
+                  "key": "country",
+                  "value": "Bangladesh"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Search businesses by postalCode",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/businesses?postalCode=1207",
+              "host": ["{{baseUrl}}"],
+              "path": ["businesses"],
+              "query": [
+                {
+                  "key": "postalCode",
+                  "value": "1207"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Search businesses by zipCode alias",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/businesses?zipCode=1207",
+              "host": ["{{baseUrl}}"],
+              "path": ["businesses"],
+              "query": [
+                {
+                  "key": "zipCode",
+                  "value": "1207"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Search businesses with combined filters",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/businesses?page=1&limit=10&city=Dhaka&country=Bangladesh&zipCode=1207",
+              "host": ["{{baseUrl}}"],
+              "path": ["businesses"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "city",
+                  "value": "Dhaka"
+                },
+                {
+                  "key": "country",
+                  "value": "Bangladesh"
+                },
+                {
+                  "key": "zipCode",
+                  "value": "1207"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  }
+}

@@ -17,12 +17,10 @@ import { FilesInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { BusinessService } from './business.service';
 import { CreateBusinessDto } from './dto/create-business.dto';
+import { BusinessQueryDto } from './dto/business-query.dto';
 import { AuthGuard } from '../common/guards/auth.guard';
 import { OptionalAuthGuard } from '../common/guards/optional-auth.guard';
-import {
-  ApiPaginatedResponseDecorator,
-  PaginationDto,
-} from '../common/decorators/api-pagination.decorator';
+import { ApiPaginatedResponseDecorator } from '../common/decorators/api-pagination.decorator';
 import { BusinessInfo } from '../database/schemas';
 
 interface AuthenticatedRequest extends Request {
@@ -66,7 +64,7 @@ export class BusinessController {
   @Get()
   @ApiPaginatedResponseDecorator(BusinessInfo)
   getAllBusinesses(
-    @Query() query: PaginationDto,
+    @Query() query: BusinessQueryDto,
     @Req() req: AuthenticatedRequest,
   ) {
     return this.businessService.getAllBusinesses(query, req.user);

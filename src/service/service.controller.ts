@@ -62,6 +62,8 @@ export class ServiceController {
     @Query('category') category?: string,
     @Query('isActive') isActive?: string,
     @Query('isFeatured') isFeatured?: string,
+    @Query('title') title?: string,
+    @Query('serviceTitle') serviceTitle?: string,
   ) {
     const filters: any = {};
 
@@ -69,6 +71,7 @@ export class ServiceController {
     if (category) filters.category = category;
     if (isActive !== undefined) filters.isActive = isActive === 'true';
     if (isFeatured !== undefined) filters.isFeatured = isFeatured === 'true';
+    if (serviceTitle || title) filters.searchTitle = serviceTitle ?? title;
 
     return this.serviceService.findAll(filters);
   }
