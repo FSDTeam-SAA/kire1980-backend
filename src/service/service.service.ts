@@ -81,6 +81,7 @@ export class ServiceService {
     isActive?: boolean;
     isFeatured?: boolean;
     searchTitle?: string;
+    location?: string;
   }) {
     const query: any = {};
 
@@ -100,6 +101,27 @@ export class ServiceService {
     }
     if (filters.searchTitle?.trim()) {
       query.serviceName = { $regex: filters.searchTitle.trim(), $options: 'i' };
+    }
+
+    if (filters.location?.trim()) {
+      const location = filters.location.trim();
+      const matchingBusinesses = await this.businessModel
+        .find({
+          $or: [
+            { city: { $regex: location, $options: 'i' } },
+            { country: { $regex: location, $options: 'i' } },
+          ],
+        })
+        .select('_id')
+        .lean();
+
+      if (matchingBusinesses.length === 0) {
+        return [];
+      }
+
+      query.businessId = {
+        $in: matchingBusinesses.map((business) => business._id),
+      };
     }
 
     return this.serviceModel

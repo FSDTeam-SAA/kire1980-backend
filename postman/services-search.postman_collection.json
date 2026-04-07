@@ -1,0 +1,77 @@
+{
+  "info": {
+    "name": "Kire1980 - Services Search API",
+    "description": "Postman collection for GET /services with title and location search.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "3b3f78f3-1987-4db5-ab07-9064ac4dd6e1"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    }
+  ],
+  "item": [
+    {
+      "name": "Get services by title",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/services?title=Haircut",
+          "host": ["{{baseUrl}}"],
+          "path": ["services"],
+          "query": [
+            {
+              "key": "title",
+              "value": "Haircut"
+            }
+          ]
+        },
+        "description": "Search services by service name/title."
+      },
+      "response": []
+    },
+    {
+      "name": "Get services by location (city or country)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/services?location=Dhaka",
+          "host": ["{{baseUrl}}"],
+          "path": ["services"],
+          "query": [
+            {
+              "key": "location",
+              "value": "Dhaka"
+            }
+          ]
+        },
+        "description": "Search services by business city or country using one location query."
+      },
+      "response": []
+    },
+    {
+      "name": "Get services by title and location",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/services?title=Haircut&location=Bangladesh",
+          "host": ["{{baseUrl}}"],
+          "path": ["services"],
+          "query": [
+            {
+              "key": "title",
+              "value": "Haircut"
+            },
+            {
+              "key": "location",
+              "value": "Bangladesh"
+            }
+          ]
+        },
+        "description": "Combine title and location filters in the same API call."
+      },
+      "response": []
+    }
+  ]
+}

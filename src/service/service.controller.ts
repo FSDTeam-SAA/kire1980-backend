@@ -58,20 +58,13 @@ export class ServiceController {
 
   @Get()
   async findAll(
-    @Query('businessId') businessId?: string,
-    @Query('category') category?: string,
-    @Query('isActive') isActive?: string,
-    @Query('isFeatured') isFeatured?: string,
     @Query('title') title?: string,
-    @Query('serviceTitle') serviceTitle?: string,
+    @Query('location') location?: string,
   ) {
-    const filters: any = {};
+    const filters: { searchTitle?: string; location?: string } = {};
 
-    if (businessId) filters.businessId = businessId;
-    if (category) filters.category = category;
-    if (isActive !== undefined) filters.isActive = isActive === 'true';
-    if (isFeatured !== undefined) filters.isFeatured = isFeatured === 'true';
-    if (serviceTitle || title) filters.searchTitle = serviceTitle ?? title;
+    if (title?.trim()) filters.searchTitle = title.trim();
+    if (location?.trim()) filters.location = location.trim();
 
     return this.serviceService.findAll(filters);
   }
