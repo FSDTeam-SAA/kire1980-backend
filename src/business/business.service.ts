@@ -210,9 +210,9 @@ export class BusinessService {
     };
   }
 
-  async activateBusiness(businessId: string, actorRole: string) {
+  async toggleBusinessStatus(businessId: string, actorRole: string) {
     if (actorRole !== 'admin') {
-      throw new ForbiddenException('Only admin can activate business');
+      throw new ForbiddenException('Only admin can toggle business status');
     }
 
     const business = await this.businessModel.findById(businessId);
@@ -220,12 +220,17 @@ export class BusinessService {
       throw new NotFoundException('Business not found');
     }
 
-    business.status = BusinessStatus.ACTIVATED;
-    business.verification = BusinessVerification.VERIFIED;
+    if (business.status === BusinessStatus.ACTIVATED) {
+      business.status = BusinessStatus.DEACTIVATED;
+    } else {
+      business.status = BusinessStatus.ACTIVATED;
+      business.verification = BusinessVerification.VERIFIED;
+    }
+    
     await business.save();
 
     this.customLogger.log(
-      `Business activated: ${businessId}`,
+      `Business status toggled to ${business.status}: ${businessId}`,
       'BusinessService',
     );
 

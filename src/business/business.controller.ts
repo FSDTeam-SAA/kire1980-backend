@@ -73,12 +73,12 @@ export class BusinessController {
     return this.businessService.getBusinessById(id);
   }
 
-  // 5) Activate business (admin only)
-  @Patch(':id/activate')
-  activateBusiness(
+  // 5) Toggle business status (admin only)
+  @Patch(':id/toggle-status')
+  toggleBusinessStatus(
     @Param('id') businessId: string,
     @Req() req: AuthenticatedRequest,
   ) {
-    return this.businessService.activateBusiness(businessId, req.user.role);
+    return this.businessService.toggleBusinessStatus(businessId, req.user.role);
   }
 }
