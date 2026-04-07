@@ -18,6 +18,10 @@ import {
 import { CreateBusinessDto } from './dto/create-business.dto';
 import { CustomLoggerService } from '../common/services/custom-logger.service';
 import { CloudinaryService } from '../common/services/cloudinary.service';
+import {
+  PaginationDto,
+  createPaginatedResponse,
+} from '../common/decorators/api-pagination.decorator';
 
 @Injectable()
 export class BusinessService {
@@ -131,12 +135,41 @@ export class BusinessService {
     }
   }
 
-  async getAllBusinesses() {
-    return this.businessModel
-      .find({ deletedAt: null })
-      .sort({ createdAt: -1 })
-      .populate('ownerId', 'fullName email role')
-      .lean();
+  async getAllBusinesses(query: PaginationDto) {
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+    } = query;
+
+    const filter: any = {
+      verification: BusinessVerification.VERIFIED,
+      deletedAt: null,
+    };
+
+    if (search) {
+      filter.$or = [
+        { businessName: { $regex: search, $options: 'i' } },
+        { businessEmail: { $regex: search, $options: 'i' } },
+        { businessCategory: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    const skip = (page - 1) * limit;
+    const [items, total] = await Promise.all([
+      this.businessModel
+        .find(filter)
+        .sort({ [sortBy]: sortOrder === 'asc' ? 1 : -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate('ownerId', 'fullName email role')
+        .lean(),
+      this.businessModel.countDocuments(filter),
+    ]);
+
+    return createPaginatedResponse(items, total, page, limit);
   }
 
   async getMyBusiness(ownerId: string) {
