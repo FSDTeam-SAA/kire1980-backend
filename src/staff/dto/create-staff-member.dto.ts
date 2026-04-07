@@ -1,4 +1,4 @@
-import { Transform, Type } from 'class-transformer';
+import { Transform, Type, plainToInstance } from 'class-transformer';
 import {
   IsArray,
   IsEmail,
@@ -9,7 +9,6 @@ import {
   MinLength,
   ValidateNested,
   Matches,
-  IsDate,
   IsBoolean,
 } from 'class-validator';
 
@@ -106,10 +105,12 @@ export class CreateStaffMemberDto {
       return undefined;
     }
 
+    // Already an array (e.g. native JSON body)
     if (Array.isArray(value)) {
-      return value;
+      return plainToInstance(WorkingScheduleDto, value);
     }
 
+    // JSON string sent via multipart/form-data
     if (typeof value === 'string') {
       const trimmed = value.trim();
 
@@ -119,12 +120,14 @@ export class CreateStaffMemberDto {
       ) {
         try {
           const parsed = JSON.parse(trimmed);
-          return Array.isArray(parsed) ? parsed : [parsed];
+          const arr = Array.isArray(parsed) ? parsed : [parsed];
+          return plainToInstance(WorkingScheduleDto, arr);
         } catch {
-          return trimmed;
+          return value;
         }
       }
     }
+
     return value;
   })
   @IsArray()
