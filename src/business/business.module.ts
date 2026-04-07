@@ -9,6 +9,12 @@ import {
   AuthUserSchema,
   BusinessInfo,
   BusinessInfoSchema,
+  Service,
+  ServiceSchema,
+  StaffMember,
+  StaffMemberSchema,
+  ReviewRating,
+  ReviewRatingSchema,
 } from '../database/schemas';
 import { CustomLoggerService } from '../common/services/custom-logger.service';
 
@@ -19,6 +25,9 @@ import { CustomLoggerService } from '../common/services/custom-logger.service';
     MongooseModule.forFeature([
       { name: BusinessInfo.name, schema: BusinessInfoSchema },
       { name: AuthUser.name, schema: AuthUserSchema },
+      { name: Service.name, schema: ServiceSchema },
+      { name: StaffMember.name, schema: StaffMemberSchema },
+      { name: ReviewRating.name, schema: ReviewRatingSchema },
     ]),
   ],
   controllers: [BusinessController],

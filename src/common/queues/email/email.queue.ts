@@ -25,7 +25,18 @@ export interface PasswordResetEmailJob {
   authId: string;
 }
 
-export type EmailJob = VerificationEmailJob | WelcomeEmailJob | PasswordResetEmailJob;
+export interface AdminContactEmailJob {
+  type: 'admin_contact';
+  fullName: string;
+  userEmail: string;
+  message: string;
+}
+
+export type EmailJob =
+  | VerificationEmailJob
+  | WelcomeEmailJob
+  | PasswordResetEmailJob
+  | AdminContactEmailJob;
 
 @Injectable()
 export class EmailQueueService {
@@ -98,6 +109,31 @@ export class EmailQueueService {
         resetCode,
         authId,
       } as PasswordResetEmailJob,
+      {
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 2000,
+        },
+        removeOnComplete: 100,
+        removeOnFail: 500,
+      },
+    );
+  }
+
+  async sendAdminContactEmail(
+    fullName: string,
+    userEmail: string,
+    message: string,
+  ): Promise<void> {
+    await this.emailQueue.add(
+      'send-admin-contact',
+      {
+        type: 'admin_contact',
+        fullName,
+        userEmail,
+        message,
+      } as AdminContactEmailJob,
       {
         attempts: 3,
         backoff: {

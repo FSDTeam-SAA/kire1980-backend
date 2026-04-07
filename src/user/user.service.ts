@@ -51,22 +51,26 @@ export class UserService {
     id: string,
     updateUserDto: UpdateUserDto,
     avatarFile?: Express.Multer.File,
+    actorRole?: string,
   ) {
     this.customLogger.log(`Updating user with id: ${id}`, 'UserService');
 
     const forbiddenFields: Array<keyof UpdateUserDto> = [
       'password',
-      'role',
       'businessId',
       'email',
     ];
+    
+    if (actorRole !== 'admin') {
+      forbiddenFields.push('role', 'status');
+    }
 
     const hasForbiddenField = forbiddenFields.some(
       (field) => updateUserDto[field] !== undefined,
     );
     if (hasForbiddenField) {
       throw new ForbiddenException(
-        'You cannot update email, role, password, or businessId from this endpoint',
+        'You cannot update protected fields (like email, role, status, password, or businessId) from this endpoint without admin privileges.',
       );
     }
 
@@ -78,7 +82,7 @@ export class UserService {
       updateUserDto.avatar = uploadedAvatar.url;
     }
 
-    const safePayload = this.buildSafeProfileUpdatePayload(updateUserDto);
+    const safePayload = this.buildSafeProfileUpdatePayload(updateUserDto, actorRole);
 
     const user = await this.userModel
       .findByIdAndUpdate(
@@ -98,6 +102,7 @@ export class UserService {
 
   private buildSafeProfileUpdatePayload(
     updateUserDto: UpdateUserDto,
+    actorRole?: string,
   ): Partial<AuthUser> {
     const allowedFields: Array<keyof UpdateUserDto> = [
       'fullName',
@@ -108,13 +113,18 @@ export class UserService {
       'sector',
       'avatar',
     ];
+    
+    if (actorRole === 'admin') {
+      allowedFields.push('status', 'role');
+    }
+
     const safePayload: Partial<AuthUser> = {};
 
     for (const field of allowedFields) {
       const value = updateUserDto[field];
 
       if (value !== undefined) {
-        (safePayload as Record<string, string | number>)[field] = value;
+        (safePayload as Record<string, any>)[field] = value;
       }
     }
 

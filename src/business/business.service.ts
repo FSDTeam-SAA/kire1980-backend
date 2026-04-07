@@ -5,16 +5,23 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
-import { Connection, Model } from 'mongoose';
+import { Connection, Model, Types } from 'mongoose';
 import {
   AuthUser,
   BusinessInfo,
   BusinessStatus,
   BusinessVerification,
+  Service,
+  StaffMember,
+  ReviewRating,
 } from '../database/schemas';
 import { CreateBusinessDto } from './dto/create-business.dto';
 import { CustomLoggerService } from '../common/services/custom-logger.service';
 import { CloudinaryService } from '../common/services/cloudinary.service';
+import {
+  PaginationDto,
+  createPaginatedResponse,
+} from '../common/decorators/api-pagination.decorator';
 
 @Injectable()
 export class BusinessService {
@@ -23,6 +30,12 @@ export class BusinessService {
     private readonly businessModel: Model<BusinessInfo>,
     @InjectModel(AuthUser.name)
     private readonly authUserModel: Model<AuthUser>,
+    @InjectModel(Service.name)
+    private readonly serviceModel: Model<Service>,
+    @InjectModel(StaffMember.name)
+    private readonly staffModel: Model<StaffMember>,
+    @InjectModel(ReviewRating.name)
+    private readonly reviewModel: Model<ReviewRating>,
     private readonly customLogger: CustomLoggerService,
     private readonly cloudinaryService: CloudinaryService,
     @InjectConnection()
@@ -122,12 +135,48 @@ export class BusinessService {
     }
   }
 
-  async getAllBusinesses() {
-    return this.businessModel
-      .find({ deletedAt: null })
-      .sort({ createdAt: -1 })
-      .populate('ownerId', 'fullName email role')
-      .lean();
+  async getAllBusinesses(
+    query: PaginationDto,
+    user?: { role: string },
+  ) {
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+    } = query;
+
+    const filter: any = {
+      deletedAt: null,
+    };
+
+    // Public users (guest or non-admin) only see VERIFIED businesses
+    if (user?.role !== 'admin') {
+      filter.verification = BusinessVerification.VERIFIED;
+    }
+
+    if (search) {
+      filter.$or = [
+        { businessName: { $regex: search, $options: 'i' } },
+        { businessEmail: { $regex: search, $options: 'i' } },
+        { businessCategory: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    const skip = (page - 1) * limit;
+    const [items, total] = await Promise.all([
+      this.businessModel
+        .find(filter)
+        .sort({ [sortBy]: sortOrder === 'asc' ? 1 : -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate('ownerId', 'fullName email role')
+        .lean(),
+      this.businessModel.countDocuments(filter),
+    ]);
+
+    return createPaginatedResponse(items, total, page, limit);
   }
 
   async getMyBusiness(ownerId: string) {
@@ -143,9 +192,67 @@ export class BusinessService {
     return business;
   }
 
-  async activateBusiness(businessId: string, actorRole: string) {
+  async getBusinessById(businessId: string): Promise<Record<string, unknown>> {
+    if (!Types.ObjectId.isValid(businessId)) {
+      throw new BadRequestException('Invalid business ID');
+    }
+
+    const business = await this.businessModel
+      .findOne({ _id: businessId, deletedAt: null })
+      .populate('ownerId', 'fullName email role')
+      .lean();
+
+    if (!business) {
+      throw new NotFoundException('Business not found');
+    }
+
+    const businessObjectId = new Types.ObjectId(businessId);
+
+    // Fetch services, staff, and reviews in parallel
+    const [services, staff, reviews] = await Promise.all([
+      this.serviceModel
+        .find({ businessId: businessObjectId, isActive: true })
+        .select('serviceName category price serviceDuration averageRating serviceImages isFeatured')
+        .lean(),
+
+      this.staffModel
+        .find({ businessId: businessObjectId, isDeleted: false, isActive: true })
+        .select('firstName lastName email phoneNumber description avatar schedule serviceIds')
+        .populate('serviceIds', 'serviceName category')
+        .lean(),
+
+      this.reviewModel
+        .find({ businessId: businessObjectId, isDeleted: false })
+        .select('rating review userId createdAt')
+        .populate('userId', 'fullName')
+        .lean(),
+    ]);
+
+    // Compute aggregate rating
+    const averageRating =
+      reviews.length > 0
+        ? Number.parseFloat(
+            (
+              reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+            ).toFixed(1),
+          )
+        : 0;
+
+    return {
+      ...business,
+      services,
+      staff,
+      reviews,
+      averageRating,
+      totalReviews: reviews.length,
+      totalServices: services.length,
+      totalStaffMembers: staff.length,
+    };
+  }
+
+  async toggleBusinessStatus(businessId: string, actorRole: string) {
     if (actorRole !== 'admin') {
-      throw new ForbiddenException('Only admin can activate business');
+      throw new ForbiddenException('Only admin can toggle business status');
     }
 
     const business = await this.businessModel.findById(businessId);
@@ -153,12 +260,17 @@ export class BusinessService {
       throw new NotFoundException('Business not found');
     }
 
-    business.status = BusinessStatus.ACTIVATED;
-    business.verification = BusinessVerification.VERIFIED;
+    if (business.status === BusinessStatus.ACTIVATED) {
+      business.status = BusinessStatus.DEACTIVATED;
+    } else {
+      business.status = BusinessStatus.ACTIVATED;
+      business.verification = BusinessVerification.VERIFIED;
+    }
+    
     await business.save();
 
     this.customLogger.log(
-      `Business activated: ${businessId}`,
+      `Business status toggled to ${business.status}: ${businessId}`,
       'BusinessService',
     );
 

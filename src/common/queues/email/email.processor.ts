@@ -39,6 +39,9 @@ export class EmailProcessor extends WorkerHost {
         case 'password_reset':
           await this.handlePasswordResetEmail(job);
           break;
+        case 'admin_contact':
+          await this.handleAdminContactEmail(job);
+          break;
         default:
           this.logger.warn(
             `Unknown email job type: ${String((job.data as { type?: string }).type || 'undefined')}`,
@@ -184,6 +187,34 @@ export class EmailProcessor extends WorkerHost {
       );
 
       throw error; // Re-throw to trigger retry
+    }
+  }
+
+  private async handleAdminContactEmail(job: Job<EmailJob>): Promise<void> {
+    const data = job.data as Extract<EmailJob, { type: 'admin_contact' }>;
+    const { fullName, userEmail, message } = data;
+
+    try {
+      await this.emailService.sendAdminContactEmail(
+        fullName,
+        userEmail,
+        message,
+      );
+      this.logger.info(
+        `Admin contact email sent successfully for ${userEmail}`,
+        {
+          context: 'EmailProcessor',
+          jobId: job.id,
+          userEmail,
+        },
+      );
+    } catch (error) {
+      this.logger.error(`Failed to send admin contact email for ${userEmail}`, {
+        context: 'EmailProcessor',
+        userEmail,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
     }
   }
 }

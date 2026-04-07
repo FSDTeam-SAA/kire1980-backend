@@ -72,4 +72,9 @@ export class CreateUserDto {
   @IsString()
   @IsOptional()
   businessId?: string;
+
+  @ApiProperty({ example: 'ACTIVE', description: 'User account status', enum: ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'DELETED', 'BLOCKED'], required: false })
+  @IsEnum(['ACTIVE', 'INACTIVE', 'SUSPENDED', 'DELETED', 'BLOCKED'], { message: 'Invalid status' })
+  @IsOptional()
+  status?: string;
 }

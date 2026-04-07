@@ -98,11 +98,11 @@ export class UserController {
     }),
   )
   updateMe(
-    @Request() req: { user: { userId: string } },
+    @Request() req: { user: { userId: string; role: string } },
     @Body() updateUserDto: UpdateUserDto,
     @UploadedFile() avatar?: Express.Multer.File,
   ) {
-    return this.userService.update(req.user.userId, updateUserDto, avatar);
+    return this.userService.update(req.user.userId, updateUserDto, avatar, req.user.role);
   }
 
   @ApiOperation({ summary: 'Update user by id (Admin or self)' })
@@ -151,6 +151,6 @@ export class UserController {
       throw new ForbiddenException('You can only update your own profile');
     }
 
-    return this.userService.update(id, updateUserDto, avatar);
+    return this.userService.update(id, updateUserDto, avatar, req.user.role);
   }
 }

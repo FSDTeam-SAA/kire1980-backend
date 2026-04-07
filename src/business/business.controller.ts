@@ -6,6 +6,7 @@ import {
   Patch,
   Param,
   Post,
+  Query,
   Req,
   UploadedFiles,
   UseGuards,
@@ -17,9 +18,15 @@ import { memoryStorage } from 'multer';
 import { BusinessService } from './business.service';
 import { CreateBusinessDto } from './dto/create-business.dto';
 import { AuthGuard } from '../common/guards/auth.guard';
+import { OptionalAuthGuard } from '../common/guards/optional-auth.guard';
+import {
+  ApiPaginatedResponseDecorator,
+  PaginationDto,
+} from '../common/decorators/api-pagination.decorator';
+import { BusinessInfo } from '../database/schemas';
 
 interface AuthenticatedRequest extends Request {
-  user: {
+  user?: {
     userId: string;
     role: string;
     tokenVersion: number;
@@ -27,11 +34,11 @@ interface AuthenticatedRequest extends Request {
 }
 
 @Controller('businesses')
-@UseGuards(AuthGuard)
 export class BusinessController {
   constructor(private readonly businessService: BusinessService) {}
 
   // 1) Create business and store businessId into AuthUser.businessId
+  @UseGuards(AuthGuard)
   @Post()
   @UseInterceptors(
     FilesInterceptor('gallery', 10, {
@@ -55,23 +62,36 @@ export class BusinessController {
   }
 
   // 2) Get all businesses
+  @UseGuards(OptionalAuthGuard)
   @Get()
-  getAllBusinesses() {
-    return this.businessService.getAllBusinesses();
+  @ApiPaginatedResponseDecorator(BusinessInfo)
+  getAllBusinesses(
+    @Query() query: PaginationDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.businessService.getAllBusinesses(query, req.user);
   }
 
   // 3) Get single business for current user from access token
+  @UseGuards(AuthGuard)
   @Get('me')
   getMyBusiness(@Req() req: AuthenticatedRequest) {
     return this.businessService.getMyBusiness(req.user.userId);
   }
 
-  // 4) Activate business (admin only)
-  @Patch(':id/activate')
-  activateBusiness(
+  // 4) Get a single business by ID with populated data (public)
+  @Get(':id')
+  getBusinessById(@Param('id') id: string) {
+    return this.businessService.getBusinessById(id);
+  }
+
+  // 5) Toggle business status (admin only)
+  @UseGuards(AuthGuard)
+  @Patch(':id/toggle-status')
+  toggleBusinessStatus(
     @Param('id') businessId: string,
     @Req() req: AuthenticatedRequest,
   ) {
-    return this.businessService.activateBusiness(businessId, req.user.role);
+    return this.businessService.toggleBusinessStatus(businessId, req.user.role);
   }
 }
