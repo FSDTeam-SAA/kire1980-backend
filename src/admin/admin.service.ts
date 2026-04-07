@@ -1,7 +1,12 @@
-import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectConnection, InjectModel } from '@nestjs/mongoose';
+import { Connection, Model, Types } from 'mongoose';
 import { AuthUser, Booking, BusinessInfo, Service } from '../database/schemas';
+import { CustomLoggerService } from '../common/services/custom-logger.service';
 
 @Injectable()
 export class AdminService {
@@ -14,7 +19,61 @@ export class AdminService {
     private readonly businessInfoModel: Model<BusinessInfo>,
     @InjectModel(Service.name)
     private readonly serviceModel: Model<Service>,
+    private readonly customLogger: CustomLoggerService,
+    @InjectConnection()
+    private readonly connection: Connection,
   ) {}
+
+  async deleteBusinessByAdmin(
+    businessId: string,
+  ): Promise<{ businessId: string }> {
+    if (!Types.ObjectId.isValid(businessId)) {
+      throw new BadRequestException('Invalid business ID');
+    }
+
+    const session = await this.connection.startSession();
+    session.startTransaction();
+
+    try {
+      const business = await this.businessInfoModel
+        .findOne({ _id: businessId, deletedAt: null })
+        .session(session);
+
+      if (!business) {
+        throw new NotFoundException('Business not found');
+      }
+
+      business.deletedAt = new Date();
+      await business.save({ session });
+
+      await this.authUserModel.updateOne(
+        { _id: business.ownerId },
+        {
+          $set: {
+            businessId: null,
+            role: 'customer',
+          },
+        },
+        { session },
+      );
+
+      await session.commitTransaction();
+
+      this.customLogger.log(
+        `Business soft deleted by admin: ${businessId}`,
+        AdminService.name,
+      );
+
+      return {
+        businessId,
+      };
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      await session.endSession();
+    }
+  }
 
   async getDashboardOverview() {
     const now = new Date();

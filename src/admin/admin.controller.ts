@@ -1,7 +1,9 @@
 import {
   Controller,
+  Delete,
   ForbiddenException,
   Get,
+  Param,
   Query,
   Request,
   UseGuards,
@@ -13,6 +15,25 @@ import { AdminService } from './admin.service';
 @UseGuards(AuthGuard)
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
+
+  @Delete('businesses/:businessId')
+  async deleteBusiness(
+    @Request() req: { user: { role: string } },
+    @Param('businessId') businessId: string,
+  ) {
+    if (req.user.role !== 'admin') {
+      throw new ForbiddenException('Only admin can delete business');
+    }
+
+    const result: { businessId: string } =
+      await this.adminService.deleteBusinessByAdmin(businessId);
+
+    return {
+      success: true,
+      message: 'Business deleted successfully',
+      data: result,
+    };
+  }
 
   @Get('overview')
   async getOverview(@Request() req: { user: { role: string } }) {

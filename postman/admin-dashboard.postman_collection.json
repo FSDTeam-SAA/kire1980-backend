@@ -1,0 +1,139 @@
+{
+  "info": {
+    "_postman_id": "b2d4f97d-7d8d-4d86-81f8-9f1f9f577001",
+    "name": "Kire1980 Admin Dashboard APIs",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Postman collection for admin dashboard endpoints created in admin module."
+  },
+  "item": [
+    {
+      "name": "Admin Dashboard",
+      "item": [
+        {
+          "name": "Get Dashboard Overview",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/dashboard/overview",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "dashboard", "overview"]
+            },
+            "description": "Returns totals for customers, bookings, today bookings, businesses, and services."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Bookings Trend (Current Year)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/dashboard/bookings-trend",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "dashboard", "bookings-trend"]
+            },
+            "description": "Returns monthly trend for selected/current year and yearly trend for last 5 years."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Bookings Trend (By Year)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/dashboard/bookings-trend?year={{year}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "dashboard", "bookings-trend"],
+              "query": [
+                {
+                  "key": "year",
+                  "value": "{{year}}"
+                }
+              ]
+            },
+            "description": "Returns booking trend for a specific year."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Top Businesses By Payment",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/dashboard/top-businesses-by-payment",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "dashboard", "top-businesses-by-payment"]
+            },
+            "description": "Returns top 3 businesses ranked by highest total payment calculated from booking services prices."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Business (Admin)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/dashboard/businesses/{{businessId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "dashboard", "businesses", "{{businessId}}"]
+            },
+            "description": "Soft deletes a business by ID. Admin only endpoint."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "adminToken",
+      "value": ""
+    },
+    {
+      "key": "year",
+      "value": "2026"
+    },
+    {
+      "key": "businessId",
+      "value": ""
+    }
+  ]
+}
