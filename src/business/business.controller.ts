@@ -79,6 +79,16 @@ export class BusinessController {
     return this.businessService.getMyBusiness(req.user.userId);
   }
 
+  // 3.1) Business owner dashboard statistics
+  @UseGuards(AuthGuard)
+  @Get('me/statistics')
+  getMyBusinessStatistics(@Req() req: AuthenticatedRequest) {
+    return this.businessService.getBusinessOwnerStatistics(
+      req.user.userId,
+      req.user.role,
+    );
+  }
+
   // 4) Get a single business by ID with populated data (public)
   @Get(':id')
   getBusinessById(@Param('id') id: string) {

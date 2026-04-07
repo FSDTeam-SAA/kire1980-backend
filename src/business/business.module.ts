@@ -15,6 +15,8 @@ import {
   StaffMemberSchema,
   ReviewRating,
   ReviewRatingSchema,
+  Booking,
+  BookingSchema,
 } from '../database/schemas';
 import { CustomLoggerService } from '../common/services/custom-logger.service';
 
@@ -28,6 +30,7 @@ import { CustomLoggerService } from '../common/services/custom-logger.service';
       { name: Service.name, schema: ServiceSchema },
       { name: StaffMember.name, schema: StaffMemberSchema },
       { name: ReviewRating.name, schema: ReviewRatingSchema },
+      { name: Booking.name, schema: BookingSchema },
     ]),
   ],
   controllers: [BusinessController],
