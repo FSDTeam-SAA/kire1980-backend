@@ -1,6 +1,8 @@
 import { Type, applyDecorators } from '@nestjs/common';
 import { ApiProperty, ApiExtraModels, getSchemaPath } from '@nestjs/swagger';
 import { ApiSuccessResponseDecorator } from './api-response.decorator';
+import { IsIn, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { Type as TransformType } from 'class-transformer';
 
 /**
  * Pagination metadata
@@ -75,6 +77,10 @@ export class PaginationDto {
     default: 1,
     minimum: 1,
   })
+  @IsOptional()
+  @TransformType(() => Number)
+  @IsNumber()
+  @Min(1)
   page?: number = 1;
 
   @ApiProperty({
@@ -85,6 +91,10 @@ export class PaginationDto {
     minimum: 1,
     maximum: 100,
   })
+  @IsOptional()
+  @TransformType(() => Number)
+  @IsNumber()
+  @Min(1)
   limit?: number = 10;
 
   @ApiProperty({
@@ -92,6 +102,8 @@ export class PaginationDto {
     example: 'john',
     required: false,
   })
+  @IsOptional()
+  @IsString()
   search?: string;
 
   @ApiProperty({
@@ -99,6 +111,8 @@ export class PaginationDto {
     example: 'createdAt',
     required: false,
   })
+  @IsOptional()
+  @IsString()
   sortBy?: string;
 
   @ApiProperty({
@@ -108,6 +122,8 @@ export class PaginationDto {
     required: false,
     default: 'desc',
   })
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
   sortOrder?: 'asc' | 'desc' = 'desc';
 }
 

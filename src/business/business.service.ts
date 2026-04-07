@@ -135,7 +135,10 @@ export class BusinessService {
     }
   }
 
-  async getAllBusinesses(query: PaginationDto) {
+  async getAllBusinesses(
+    query: PaginationDto,
+    user?: { role: string },
+  ) {
     const {
       page = 1,
       limit = 10,
@@ -145,9 +148,13 @@ export class BusinessService {
     } = query;
 
     const filter: any = {
-      verification: BusinessVerification.VERIFIED,
       deletedAt: null,
     };
+
+    // Public users (guest or non-admin) only see VERIFIED businesses
+    if (user?.role !== 'admin') {
+      filter.verification = BusinessVerification.VERIFIED;
+    }
 
     if (search) {
       filter.$or = [

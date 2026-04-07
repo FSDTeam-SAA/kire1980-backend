@@ -18,6 +18,7 @@ import { memoryStorage } from 'multer';
 import { BusinessService } from './business.service';
 import { CreateBusinessDto } from './dto/create-business.dto';
 import { AuthGuard } from '../common/guards/auth.guard';
+import { OptionalAuthGuard } from '../common/guards/optional-auth.guard';
 import {
   ApiPaginatedResponseDecorator,
   PaginationDto,
@@ -25,7 +26,7 @@ import {
 import { BusinessInfo } from '../database/schemas';
 
 interface AuthenticatedRequest extends Request {
-  user: {
+  user?: {
     userId: string;
     role: string;
     tokenVersion: number;
@@ -61,10 +62,14 @@ export class BusinessController {
   }
 
   // 2) Get all businesses
+  @UseGuards(OptionalAuthGuard)
   @Get()
   @ApiPaginatedResponseDecorator(BusinessInfo)
-  getAllBusinesses(@Query() query: PaginationDto) {
-    return this.businessService.getAllBusinesses(query);
+  getAllBusinesses(
+    @Query() query: PaginationDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.businessService.getAllBusinesses(query, req.user);
   }
 
   // 3) Get single business for current user from access token
