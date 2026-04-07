@@ -14,3 +14,4 @@ export * from './review-rating.schema';
 export * from './staff-member.schema';
 export * from './booking.schema';
 export * from './wishlist.schema';
+export * from './contact-inquiry.schema';

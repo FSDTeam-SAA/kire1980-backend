@@ -153,4 +153,26 @@ export class EmailService {
       html,
     });
   }
+
+  /**
+   * Send admin contact email notification
+   */
+  async sendAdminContactEmail(
+    fullName: string,
+    userEmail: string,
+    message: string,
+  ): Promise<void> {
+    const html = this.getEmailTemplate('admin-contact.html', {
+      fullName,
+      userEmail,
+      message,
+      year: new Date().getFullYear().toString(),
+    });
+
+    await this.sendEmail({
+      to: String(config.email_from || config.email_user),
+      subject: `New Contact Inquiry from ${fullName}`,
+      html,
+    });
+  }
 }
