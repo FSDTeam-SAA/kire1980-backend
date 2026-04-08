@@ -149,6 +149,19 @@ export class BusinessController {
     return this.businessService.getServiceManagementCount(req.user.userId);
   }
 
+  // 8.1) Get booking management count for business owner dashboard
+  @UseGuards(AuthGuard)
+  @Get('dashboard/booking-management-count')
+  getBookingManagementCount(@Req() req: AuthenticatedRequest) {
+    if (req.user.role !== 'businessowner' && req.user.role !== 'admin') {
+      throw new ForbiddenException(
+        'Only business owners can access booking management statistics',
+      );
+    }
+
+    return this.businessService.getBookingManagementCount(req.user.userId);
+  }
+
   // 9) Get revenue chart data for business owner dashboard
   @UseGuards(AuthGuard)
   @Get('dashboard/revenue-chart')

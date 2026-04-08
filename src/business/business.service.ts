@@ -638,17 +638,20 @@ export class BusinessService {
       throw new NotFoundException('Business not found for this user');
     }
 
+    const ownerObjectId = new Types.ObjectId(ownerId);
     const businessObjectId = new Types.ObjectId(business._id);
 
     const [totalServices, active, topCategoryData, totalBookings] =
       await Promise.all([
-        this.serviceModel.countDocuments({ businessId: businessObjectId }),
         this.serviceModel.countDocuments({
-          businessId: businessObjectId,
+          $or: [{ businessId: businessObjectId }, { businessOwnerId: ownerObjectId }],
+        }),
+        this.serviceModel.countDocuments({
+          $or: [{ businessId: businessObjectId }, { businessOwnerId: ownerObjectId }],
           isActive: true,
         }),
         this.serviceModel.aggregate([
-          { $match: { businessId: businessObjectId } },
+          { $match: { $or: [{ businessId: businessObjectId }, { businessOwnerId: ownerObjectId }] } },
           { $group: { _id: '$category', count: { $sum: 1 } } },
           { $sort: { count: -1 } },
           { $limit: 1 },
@@ -671,6 +674,92 @@ export class BusinessService {
       active,
       topCategory,
       avgBooking,
+    };
+  }
+
+  async getBookingManagementCount(ownerId: string) {
+    const business = await this.businessModel
+      .findOne({ ownerId, deletedAt: null })
+      .select('_id')
+      .lean();
+
+    if (!business) {
+      throw new NotFoundException('Business not found for this user');
+    }
+
+    const businessObjectId = new Types.ObjectId(business._id);
+    const now = new Date();
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+    const endOfToday = new Date(now);
+    endOfToday.setHours(23, 59, 59, 999);
+
+    const [todayBookingsAgg, cancelledToday, completedToday, todaysRevenueAgg] = await Promise.all([
+      // 1. Today Bookings (Actual service items scheduled for today)
+      this.bookingModel.aggregate([
+        {
+          $match: {
+            businessId: businessObjectId,
+            isDeleted: false,
+            'services.dateAndTime': { $gte: startOfToday, $lte: endOfToday },
+          },
+        },
+        { $unwind: '$services' },
+        {
+          $match: {
+            'services.dateAndTime': { $gte: startOfToday, $lte: endOfToday },
+          },
+        },
+        { $count: 'total' },
+      ]),
+      // 2. Cancelled Today
+      this.bookingModel.countDocuments({
+        businessId: businessObjectId,
+        isDeleted: false,
+        bookingStatus: BookingStatus.CANCELLED,
+        cancelledAt: { $gte: startOfToday, $lte: endOfToday },
+      }),
+      // 3. Completed Today
+      this.bookingModel.countDocuments({
+        businessId: businessObjectId,
+        isDeleted: false,
+        bookingStatus: BookingStatus.COMPLETED,
+        completedAt: { $gte: startOfToday, $lte: endOfToday },
+      }),
+      // 4. Today's Revenue (Sum of COMPLETED services today)
+      this.bookingModel.aggregate([
+        {
+          $match: {
+            businessId: businessObjectId,
+            isDeleted: false,
+            bookingStatus: BookingStatus.COMPLETED,
+            completedAt: { $gte: startOfToday, $lte: endOfToday },
+          },
+        },
+        { $unwind: '$services' },
+        {
+          $lookup: {
+            from: 'services',
+            localField: 'services.serviceId',
+            foreignField: '_id',
+            as: 'serviceDetail',
+          },
+        },
+        { $unwind: '$serviceDetail' },
+        {
+          $group: {
+            _id: null,
+            totalRevenue: { $sum: '$serviceDetail.price' },
+          },
+        },
+      ]),
+    ]);
+
+    return {
+      todayBookings: todayBookingsAgg[0]?.total || 0,
+      cancelled: cancelledToday,
+      completed: completedToday,
+      todaysRevenue: todaysRevenueAgg[0]?.totalRevenue || 0,
     };
   }
 
