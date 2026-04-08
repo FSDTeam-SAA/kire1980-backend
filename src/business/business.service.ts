@@ -432,4 +432,92 @@ export class BusinessService {
 
     return business;
   }
+
+  async getStaffIndividualStats(ownerId: string, staffId: string) {
+    const business = await this.businessModel
+      .findOne({ ownerId, deletedAt: null })
+      .select('_id')
+      .lean();
+
+    if (!business) {
+      throw new NotFoundException('Business not found for this user');
+    }
+
+    const businessObjectId = new Types.ObjectId(business._id);
+    const staffObjectId = new Types.ObjectId(staffId);
+
+    // Verify staff belongs to this business
+    const staff = await this.staffModel.findOne({
+      _id: staffObjectId,
+      businessId: businessObjectId,
+      isDeleted: false,
+    });
+
+    if (!staff) {
+      throw new NotFoundException(
+        'Staff member not found in your business records',
+      );
+    }
+
+    const statsAgg = await this.bookingModel.aggregate([
+      {
+        $match: {
+          businessId: businessObjectId,
+          isDeleted: false,
+          'services.selectedProvider': staffObjectId,
+        },
+      },
+      { $unwind: '$services' },
+      {
+        $match: {
+          'services.selectedProvider': staffObjectId,
+        },
+      },
+      {
+        $lookup: {
+          from: 'services',
+          localField: 'services.serviceId',
+          foreignField: '_id',
+          as: 'serviceInfo',
+        },
+      },
+      { $unwind: '$serviceInfo' },
+      {
+        $group: {
+          _id: null,
+          totalBookings: { $addToSet: '$_id' },
+          completedServices: {
+            $sum: {
+              $cond: [{ $eq: ['$bookingStatus', BookingStatus.COMPLETED] }, 1, 0],
+            },
+          },
+          revenueGenerated: {
+            $sum: {
+              $cond: [
+                { $eq: ['$bookingStatus', BookingStatus.COMPLETED] },
+                '$serviceInfo.price',
+                0,
+              ],
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          totalBookings: { $size: '$totalBookings' },
+          completedServices: 1,
+          revenueGenerated: { $round: ['$revenueGenerated', 2] },
+        },
+      },
+    ]);
+
+    const stats = statsAgg[0] || {
+      totalBookings: 0,
+      completedServices: 0,
+      revenueGenerated: 0,
+    };
+
+    return stats;
+  }
 }

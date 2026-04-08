@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  ForbiddenException,
   Get,
   Patch,
   Param,
@@ -101,5 +102,24 @@ export class BusinessController {
     @Req() req: AuthenticatedRequest,
   ) {
     return this.businessService.toggleBusinessStatus(businessId, req.user.role);
+  }
+
+  // 6) Get individual staff statistics for business owner dashboard
+  @UseGuards(AuthGuard)
+  @Get('dashboard/staff-individual-stats/:id')
+  getStaffIndividualStats(
+    @Param('id') staffId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    if (req.user.role !== 'businessowner' && req.user.role !== 'admin') {
+      throw new ForbiddenException(
+        'Only business owners can access staff statistics',
+      );
+    }
+
+    return this.businessService.getStaffIndividualStats(
+      req.user.userId,
+      staffId,
+    );
   }
 }
