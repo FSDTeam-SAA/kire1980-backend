@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -22,6 +23,8 @@ import { CustomLoggerService } from '../common/services/custom-logger.service';
 import { CloudinaryService } from '../common/services/cloudinary.service';
 import { createPaginatedResponse } from '../common/decorators/api-pagination.decorator';
 import { BusinessQueryDto } from './dto/business-query.dto';
+import { REDIS_CLIENT } from '../common/modules/redis.module';
+import { Redis as RedisType } from 'ioredis';
 
 @Injectable()
 export class BusinessService {
@@ -42,6 +45,8 @@ export class BusinessService {
     private readonly cloudinaryService: CloudinaryService,
     @InjectConnection()
     private readonly connection: Connection,
+    @Inject(REDIS_CLIENT)
+    private readonly redis: RedisType,
   ) {}
 
   async getBusinessOwnerStatistics(ownerId: string, role: string) {
@@ -643,5 +648,137 @@ export class BusinessService {
     const hours = hourMatch ? parseInt(hourMatch[1], 10) : 0;
     const minutes = minuteMatch ? parseInt(minuteMatch[1], 10) : 0;
     return hours * 60 + minutes || 30;
+  }
+
+  async getRevenueChartData(
+    ownerId: string,
+    viewType: 'yearly' | 'monthly' | 'weekly' = 'yearly',
+  ) {
+    const business = await this.businessModel
+      .findOne({ ownerId, deletedAt: null })
+      .select('_id')
+      .lean();
+
+    if (!business) {
+      throw new NotFoundException('Business not found for this user');
+    }
+
+    const businessId = business._id.toString();
+    const cacheKey = `dashboard:revenue-chart:${businessId}:${viewType}`;
+    
+    // Step 4: Check Cache
+    const cachedData = await this.redis.get(cacheKey);
+    if (cachedData) {
+      return JSON.parse(cachedData);
+    }
+
+    const businessObjectId = new Types.ObjectId(businessId);
+    const now = new Date();
+    let startDate: Date;
+    
+    if (viewType === 'weekly') {
+      startDate = new Date(now);
+      startDate.setDate(now.getDate() - 6);
+      startDate.setHours(0, 0, 0, 0);
+    } else if (viewType === 'monthly') {
+      startDate = new Date(now);
+      startDate.setDate(now.getDate() - 29);
+      startDate.setHours(0, 0, 0, 0);
+    } else {
+      startDate = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+      startDate.setHours(0, 0, 0, 0);
+    }
+
+    // Step 2: Aggregation Pipeline
+    const aggResult = await this.bookingModel.aggregate([
+      {
+        $match: {
+          businessId: businessObjectId,
+          isDeleted: false,
+          bookingStatus: BookingStatus.COMPLETED,
+          'services.dateAndTime': { $gte: startDate, $lte: now },
+        },
+      },
+      { $unwind: '$services' },
+      {
+        $match: {
+          'services.dateAndTime': { $gte: startDate, $lte: now },
+        },
+      },
+      {
+        $lookup: {
+          from: 'services',
+          localField: 'services.serviceId',
+          foreignField: '_id',
+          as: 'serviceInfo',
+        },
+      },
+      { $unwind: '$serviceInfo' },
+      {
+        $group: {
+          _id:
+            viewType === 'yearly'
+              ? { $dateToString: { format: '%Y-%m', date: '$services.dateAndTime' } }
+              : { $dateToString: { format: '%Y-%m-%d', date: '$services.dateAndTime' } },
+          totalRevenue: { $sum: '$serviceInfo.price' },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]);
+
+    // Step 3: Gap Filling Logic
+    const labels: string[] = [];
+    const revenueData: number[] = [];
+    const commissionData: number[] = [];
+    const payoutData: number[] = [];
+
+    const dataMap = new Map(aggResult.map(item => [item._id, item.totalRevenue]));
+    const commissionRate = 0.1; // 10% Platform Commission
+
+    if (viewType === 'weekly' || viewType === 'monthly') {
+      const days = viewType === 'weekly' ? 7 : 30;
+      for (let i = 0; i < days; i++) {
+        const d = new Date(startDate);
+        d.setDate(startDate.getDate() + i);
+        const dateStr = d.toISOString().split('T')[0];
+        const dayLabel = 
+          viewType === 'weekly' 
+            ? d.toLocaleDateString('en-US', { weekday: 'short' })
+            : d.toLocaleDateString('en-US', { day: '2-digit', month: 'short' });
+        
+        const rev = dataMap.get(dateStr) || 0;
+        labels.push(dayLabel);
+        revenueData.push(Number(rev.toFixed(2)));
+        commissionData.push(Number((rev * commissionRate).toFixed(2)));
+        payoutData.push(Number((rev * (1 - commissionRate)).toFixed(2)));
+      }
+    } else {
+      for (let i = 0; i < 12; i++) {
+        const d = new Date(startDate.getFullYear(), startDate.getMonth() + i, 1);
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const monthLabel = d.toLocaleDateString('en-US', { month: 'short' });
+        
+        const rev = dataMap.get(dateStr) || 0;
+        labels.push(monthLabel);
+        revenueData.push(Number(rev.toFixed(2)));
+        commissionData.push(Number((rev * commissionRate).toFixed(2)));
+        payoutData.push(Number((rev * (1 - commissionRate)).toFixed(2)));
+      }
+    }
+
+    // Step 5: Frontend Contract Design
+    const response = {
+      labels,
+      datasets: [
+        { label: 'Total Revenue', data: revenueData },
+        { label: 'Platform Commission', data: commissionData },
+        { label: 'Payouts', data: payoutData },
+      ],
+    };
+
+    // Cache the result for 15 minutes (900 seconds)
+    await this.redis.setex(cacheKey, 900, JSON.stringify(response));
+
+    return response;
   }
 }

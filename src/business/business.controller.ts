@@ -148,4 +148,20 @@ export class BusinessController {
 
     return this.businessService.getServiceManagementCount(req.user.userId);
   }
+
+  // 9) Get revenue chart data for business owner dashboard
+  @UseGuards(AuthGuard)
+  @Get('dashboard/revenue-chart')
+  getRevenueChartData(
+    @Req() req: AuthenticatedRequest,
+    @Query('viewType') viewType: 'yearly' | 'monthly' | 'weekly' = 'yearly',
+  ) {
+    if (req.user.role !== 'businessowner' && req.user.role !== 'admin') {
+      throw new ForbiddenException(
+        'Only business owners can access revenue chart statistics',
+      );
+    }
+
+    return this.businessService.getRevenueChartData(req.user.userId, viewType);
+  }
 }

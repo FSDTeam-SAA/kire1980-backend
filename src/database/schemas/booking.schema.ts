@@ -98,7 +98,7 @@ export const BookingSchema = SchemaFactory.createForClass(Booking);
 
 // Add compound indexes for efficient queries
 BookingSchema.index({ userId: 1, bookingStatus: 1, isDeleted: 1 });
-BookingSchema.index({ businessId: 1, 'services.dateAndTime': 1 });
+BookingSchema.index({ businessId: 1, 'services.dateAndTime': 1, bookingStatus: 1, isDeleted: 1 });
 BookingSchema.index({
   'services.selectedProvider': 1,
   'services.dateAndTime': 1,
