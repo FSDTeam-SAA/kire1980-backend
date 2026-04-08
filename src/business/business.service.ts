@@ -79,24 +79,9 @@ export class BusinessService {
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     endOfMonth.setHours(23, 59, 59, 999);
 
-    const [todaysBookings, newCustomersAgg, monthlyRevenueAgg, avgRatingAgg] =
+    const [todaysBookingsAgg, newCustomersAgg, monthlyRevenueAgg, avgRatingAgg] =
       await Promise.all([
-        this.bookingModel.countDocuments({
-          businessId: businessObjectId,
-          isDeleted: false,
-          bookingStatus: {
-            $nin: [BookingStatus.CANCELLED, BookingStatus.NO_SHOW],
-          },
-          services: {
-            $elemMatch: {
-              dateAndTime: {
-                $gte: startOfToday,
-                $lte: endOfToday,
-              },
-            },
-          },
-        }),
-
+        // 1. Today's Bookings (Count of individual service items)
         this.bookingModel.aggregate([
           {
             $match: {
@@ -105,32 +90,48 @@ export class BusinessService {
               bookingStatus: {
                 $nin: [BookingStatus.CANCELLED, BookingStatus.NO_SHOW],
               },
-              createdAt: {
-                $gte: startOfMonth,
-                $lte: endOfMonth,
-              },
+              'services.dateAndTime': { $gte: startOfToday, $lte: endOfToday },
+            },
+          },
+          { $unwind: '$services' },
+          {
+            $match: {
+              'services.dateAndTime': { $gte: startOfToday, $lte: endOfToday },
+            },
+          },
+          { $count: 'total' },
+        ]),
+
+        // 2. New Statistics/Customers (Users whose first booking was this month)
+        this.bookingModel.aggregate([
+          {
+            $match: {
+              businessId: businessObjectId,
+              isDeleted: false,
             },
           },
           {
             $group: {
               _id: '$userId',
+              firstBookingDate: { $min: '$createdAt' },
             },
           },
           {
-            $count: 'total',
+            $match: {
+              firstBookingDate: { $gte: startOfMonth, $lte: endOfMonth },
+            },
           },
+          { $count: 'total' },
         ]),
 
+        // 3. Monthly Revenue (Completed services this month)
         this.bookingModel.aggregate([
           {
             $match: {
               businessId: businessObjectId,
               isDeleted: false,
               bookingStatus: BookingStatus.COMPLETED,
-              completedAt: {
-                $gte: startOfMonth,
-                $lte: endOfMonth,
-              },
+              completedAt: { $gte: startOfMonth, $lte: endOfMonth },
             },
           },
           { $unwind: '$services' },
@@ -139,18 +140,19 @@ export class BusinessService {
               from: 'services',
               localField: 'services.serviceId',
               foreignField: '_id',
-              as: 'serviceInfo',
+              as: 'serviceDetail',
             },
           },
-          { $unwind: '$serviceInfo' },
+          { $unwind: '$serviceDetail' },
           {
             $group: {
               _id: null,
-              totalRevenue: { $sum: '$serviceInfo.price' },
+              totalRevenue: { $sum: '$serviceDetail.price' },
             },
           },
         ]),
 
+        // 4. Average Rating
         this.reviewModel.aggregate([
           {
             $match: {
@@ -167,14 +169,15 @@ export class BusinessService {
         ]),
       ]);
 
-    const newCustomers = newCustomersAgg[0]?.total ?? 0;
+    const todaysBookings = todaysBookingsAgg[0]?.total ?? 0;
+    const newCustomer = newCustomersAgg[0]?.total ?? 0;
     const monthlyRevenue = Number(
       (monthlyRevenueAgg[0]?.totalRevenue ?? 0).toFixed(2),
     );
     const averageRating = Number((avgRatingAgg[0]?.avgRating ?? 0).toFixed(1));
 
     return {
-      newCustomers,
+      newCustomer,
       todaysBookings,
       monthlyRevenue,
       averageRating,
