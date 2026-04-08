@@ -6,6 +6,7 @@ import {
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Connection, Model, Types } from 'mongoose';
 import { AuthUser, Booking, BusinessInfo, Service, StaffMember } from '../database/schemas';
+import { BookingStatus } from '../database/schemas/booking.schema';
 import { CustomLoggerService } from '../common/services/custom-logger.service';
 
 @Injectable()
@@ -306,28 +307,94 @@ export class AdminService {
     };
   }
 
-  async getStaffManagementStats() {
-    const [totalServices, activeStaff, topCategoryData, totalBookings, totalBusinesses] = await Promise.all([
-      this.serviceModel.countDocuments({ isActive: true }),
-      this.staffMemberModel.countDocuments({ isActive: true, isDeleted: false }),
-      this.serviceModel.aggregate([
-        { $match: { isActive: true } },
-        { $group: { _id: '$category', count: { $sum: 1 } } },
-        { $sort: { count: -1 } },
-        { $limit: 1 },
-      ]),
-      this.bookingModel.countDocuments({ isDeleted: false }),
-      this.businessInfoModel.countDocuments({ deletedAt: null }),
+  async getStaffManagementCount() {
+    const now = new Date();
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+    const endOfToday = new Date(now);
+    endOfToday.setHours(23, 59, 59, 999);
+
+    const activeBookingStatuses = [
+      BookingStatus.PENDING,
+      BookingStatus.CONFIRMED,
+      BookingStatus.IN_PROGRESS,
+    ];
+
+    const [totalStaff, totalBookedToday, activeBookings] = await Promise.all([
+      this.staffMemberModel.countDocuments({ isDeleted: false }),
+      this.bookingModel.countDocuments({
+        isDeleted: false,
+        'services.dateAndTime': { $gte: startOfToday, $lte: endOfToday },
+      }),
+      this.bookingModel
+        .find({
+          isDeleted: false,
+          bookingStatus: { $in: activeBookingStatuses },
+          'services.dateAndTime': { $lte: now },
+        })
+        .populate('services.serviceId', 'serviceDuration')
+        .lean(),
     ]);
 
-    const topCategory = topCategoryData.length > 0 ? topCategoryData[0]._id : 'N/A';
-    const avgBooking = totalBusinesses > 0 ? Number((totalBookings / totalBusinesses).toFixed(2)) : 0;
+    // Calculate Currently On Duty
+    const onDutyStaffIds = new Set<string>();
+    for (const booking of activeBookings) {
+      for (const item of booking.services) {
+        const startTime = new Date(item.dateAndTime);
+        const durationMinutes = this.parseDurationToMinutes(
+          (item.serviceId as any)?.serviceDuration || '30 mins',
+        );
+        const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
+
+        if (startTime <= now && now < endTime) {
+          onDutyStaffIds.add(item.selectedProvider.toString());
+        }
+      }
+    }
+
+    return {
+      totalStaff,
+      currentlyOnDuty: onDutyStaffIds.size,
+      totalBookedToday,
+    };
+  }
+
+  async getServiceManagementCount() {
+    const [totalServices, active, topCategoryData, totalBookings] =
+      await Promise.all([
+        this.serviceModel.countDocuments({}),
+        this.serviceModel.countDocuments({ isActive: true }),
+        this.serviceModel.aggregate([
+          { $group: { _id: '$category', count: { $sum: 1 } } },
+          { $sort: { count: -1 } },
+          { $limit: 1 },
+        ]),
+        this.bookingModel.countDocuments({ isDeleted: false }),
+      ]);
+
+    const topCategory =
+      topCategoryData.length > 0 ? topCategoryData[0]._id : 'N/A';
+    const avgBooking =
+      totalServices > 0
+        ? Number((totalBookings / totalServices).toFixed(2))
+        : 0;
 
     return {
       totalServices,
-      active: activeStaff,
+      active,
       topCategory,
       avgBooking,
     };
+  }
+
+  private parseDurationToMinutes(duration: string): number {
+    if (!duration) return 30;
+    const raw = String(duration).trim().toLowerCase();
+    if (/^\d+$/.test(raw)) return parseInt(raw, 10);
+    const hourMatch = /(\d+)\s*(hour|hours|hr|hrs|h)\b/.exec(raw);
+    const minuteMatch = /(\d+)\s*(minute|minutes|min|mins|m)\b/.exec(raw);
+    const hours = hourMatch ? parseInt(hourMatch[1], 10) : 0;
+    const minutes = minuteMatch ? parseInt(minuteMatch[1], 10) : 0;
+    return hours * 60 + minutes || 30;
   }
 }

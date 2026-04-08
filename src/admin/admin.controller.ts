@@ -86,17 +86,36 @@ export class AdminController {
     };
   }
 
-  @Get('staff-management-stats')
-  async getStaffManagementStats(@Request() req: { user: { role: string } }) {
+  @Get('staff-management-count')
+  async getStaffManagementCount(@Request() req: { user: { role: string } }) {
     if (req.user.role !== 'admin') {
-      throw new ForbiddenException('Only admin can access staff management stats');
+      throw new ForbiddenException(
+        'Only admin can access staff management count',
+      );
     }
 
-    const stats = await this.adminService.getStaffManagementStats();
+    const stats = await this.adminService.getStaffManagementCount();
 
     return {
       success: true,
       message: 'Staff management statistics retrieved successfully',
+      data: stats,
+    };
+  }
+
+  @Get('service-management-count')
+  async getServiceManagementCount(@Request() req: { user: { role: string } }) {
+    if (req.user.role !== 'admin') {
+      throw new ForbiddenException(
+        'Only admin can access service management count',
+      );
+    }
+
+    const stats = await this.adminService.getServiceManagementCount();
+
+    return {
+      success: true,
+      message: 'Service management statistics retrieved successfully',
       data: stats,
     };
   }
