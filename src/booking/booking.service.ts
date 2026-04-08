@@ -35,7 +35,7 @@ export class BookingService {
     private readonly authUserModel: Model<AuthUser>,
     private readonly customLogger: CustomLoggerService,
     private readonly staffService: StaffService,
-  ) {}
+  ) { }
 
   async create(userId: string, createBookingDto: CreateBookingDto) {
     // Verify user exists
