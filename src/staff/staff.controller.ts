@@ -102,7 +102,7 @@ export class StaffController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id') id: string): Promise<any> {
     return this.staffService.findOne(id);
   }
 

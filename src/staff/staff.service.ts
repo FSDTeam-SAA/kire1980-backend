@@ -174,7 +174,7 @@ export class StaffService {
     };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string): Promise<any> {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid staff member ID');
     }
@@ -189,7 +189,57 @@ export class StaffService {
       throw new NotFoundException('Staff member not found');
     }
 
-    return staffMember;
+    // Fetch recent bookings for this staff member
+    const recentBookings = await this.bookingModel.aggregate([
+      {
+        $match: {
+          'services.selectedProvider': new Types.ObjectId(id),
+          isDeleted: { $ne: true },
+        },
+      },
+      { $unwind: '$services' },
+      {
+        $match: {
+          'services.selectedProvider': new Types.ObjectId(id),
+        },
+      },
+      {
+        $lookup: {
+          from: 'auth_users',
+          localField: 'userId',
+          foreignField: '_id',
+          as: 'customer',
+        },
+      },
+      { $unwind: { path: '$customer', preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: 'services',
+          localField: 'services.serviceId',
+          foreignField: '_id',
+          as: 'serviceInfo',
+        },
+      },
+      { $unwind: { path: '$serviceInfo', preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          _id: 0,
+          customerName: { $ifNull: ['$customer.fullName', 'Unknown Customer'] },
+          serviceName: {
+            $ifNull: ['$serviceInfo.serviceName', 'Unknown Service'],
+          },
+          dateAndTime: '$services.dateAndTime',
+          status: '$bookingStatus',
+        },
+      },
+      { $sort: { dateAndTime: -1 } },
+      { $limit: 10 },
+    ]);
+
+    return {
+      ...staffMember,
+      recentBookings,
+    };
   }
 
   async findByBusiness(businessId: string, page = 1, limit = 10) {
