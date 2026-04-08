@@ -164,4 +164,17 @@ export class BusinessController {
 
     return this.businessService.getRevenueChartData(req.user.userId, viewType);
   }
+
+  // 10) Get upcoming appointments for business owner dashboard
+  @UseGuards(AuthGuard)
+  @Get('dashboard/upcoming-appointments')
+  getUpcomingAppointments(@Req() req: AuthenticatedRequest) {
+    if (req.user.role !== 'businessowner' && req.user.role !== 'admin') {
+      throw new ForbiddenException(
+        'Only business owners can access upcoming appointments',
+      );
+    }
+
+    return this.businessService.getUpcomingAppointments(req.user.userId);
+  }
 }

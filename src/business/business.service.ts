@@ -781,4 +781,85 @@ export class BusinessService {
 
     return response;
   }
+
+  async getUpcomingAppointments(ownerId: string) {
+    const business = await this.businessModel
+      .findOne({ ownerId, deletedAt: null })
+      .select('_id')
+      .lean();
+
+    if (!business) {
+      throw new NotFoundException('Business not found for this user');
+    }
+
+    const businessObjectId = new Types.ObjectId(business._id.toString());
+    const now = new Date();
+    const in48Hours = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+
+    const appointments = await this.bookingModel.aggregate([
+      {
+        $match: {
+          businessId: businessObjectId,
+          isDeleted: false,
+          bookingStatus: {
+            $in: [
+              BookingStatus.PENDING,
+              BookingStatus.CONFIRMED,
+              BookingStatus.IN_PROGRESS,
+            ],
+          },
+        },
+      },
+      { $unwind: '$services' },
+      {
+        $match: {
+          'services.dateAndTime': { $gte: now, $lte: in48Hours },
+        },
+      },
+      {
+        $lookup: {
+          from: 'auth_users',
+          localField: 'userId',
+          foreignField: '_id',
+          as: 'clientInfo',
+        },
+      },
+      { $unwind: '$clientInfo' },
+      {
+        $lookup: {
+          from: 'services',
+          localField: 'services.serviceId',
+          foreignField: '_id',
+          as: 'serviceInfo',
+        },
+      },
+      { $unwind: '$serviceInfo' },
+      {
+        $lookup: {
+          from: 'staff_members',
+          localField: 'services.selectedProvider',
+          foreignField: '_id',
+          as: 'staffInfo',
+        },
+      },
+      { $unwind: '$staffInfo' },
+      {
+        $project: {
+          _id: 0,
+          bookingId: '$_id',
+          serviceItemId: '$services._id',
+          clientName: '$clientInfo.fullName',
+          serviceType: '$serviceInfo.serviceName',
+          staffName: {
+            $concat: ['$staffInfo.firstName', ' ', '$staffInfo.lastName'],
+          },
+          timeAndDate: '$services.dateAndTime',
+          status: '$bookingStatus',
+        },
+      },
+      { $sort: { timeAndDate: 1 } },
+    ]);
+
+    return appointments;
+  }
 }
