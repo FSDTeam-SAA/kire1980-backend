@@ -81,7 +81,7 @@ export class BusinessService {
 
     const [todaysBookingsAgg, newCustomersAgg, monthlyRevenueAgg, avgRatingAgg] =
       await Promise.all([
-        // 1. Today's Bookings (Count of individual service items)
+        // 1. Today's Bookings (Count of individual active service items today)
         this.bookingModel.aggregate([
           {
             $match: {
@@ -124,14 +124,22 @@ export class BusinessService {
           { $count: 'total' },
         ]),
 
-        // 3. Monthly Revenue (Completed services this month)
+        // 3. Monthly Revenue (Sum of COMPLETED services this month)
         this.bookingModel.aggregate([
           {
             $match: {
               businessId: businessObjectId,
               isDeleted: false,
               bookingStatus: BookingStatus.COMPLETED,
-              completedAt: { $gte: startOfMonth, $lte: endOfMonth },
+              $or: [
+                { completedAt: { $gte: startOfMonth, $lte: endOfMonth } },
+                {
+                  $and: [
+                    { completedAt: { $eq: null } },
+                    { updatedAt: { $gte: startOfMonth, $lte: endOfMonth } },
+                  ],
+                },
+              ],
             },
           },
           { $unwind: '$services' },
