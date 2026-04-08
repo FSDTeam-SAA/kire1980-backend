@@ -88,9 +88,9 @@ export class AdminController {
 
   @Get('staff-management-count')
   async getStaffManagementCount(@Request() req: { user: { role: string } }) {
-    if (req.user.role !== 'admin') {
+    if (req.user.role !== 'businessowner') {
       throw new ForbiddenException(
-        'Only admin can access staff management count',
+        'Only business owner can access staff management count',
       );
     }
 
@@ -105,9 +105,9 @@ export class AdminController {
 
   @Get('service-management-count')
   async getServiceManagementCount(@Request() req: { user: { role: string } }) {
-    if (req.user.role !== 'admin') {
+    if (req.user.role !== 'businessowner') {
       throw new ForbiddenException(
-        'Only admin can access service management count',
+        'Only business owner can access service management count',
       );
     }
 
