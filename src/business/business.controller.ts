@@ -122,4 +122,30 @@ export class BusinessController {
       staffId,
     );
   }
+
+  // 7) Get staff management statistics for business owner dashboard
+  @UseGuards(AuthGuard)
+  @Get('dashboard/staff-management-count')
+  getStaffManagementCount(@Req() req: AuthenticatedRequest) {
+    if (req.user.role !== 'businessowner' && req.user.role !== 'admin') {
+      throw new ForbiddenException(
+        'Only business owners can access staff management statistics',
+      );
+    }
+
+    return this.businessService.getStaffManagementCount(req.user.userId);
+  }
+
+  // 8) Get service management statistics for business owner dashboard
+  @UseGuards(AuthGuard)
+  @Get('dashboard/service-management-count')
+  getServiceManagementCount(@Req() req: AuthenticatedRequest) {
+    if (req.user.role !== 'businessowner' && req.user.role !== 'admin') {
+      throw new ForbiddenException(
+        'Only business owners can access service management statistics',
+      );
+    }
+
+    return this.businessService.getServiceManagementCount(req.user.userId);
+  }
 }
