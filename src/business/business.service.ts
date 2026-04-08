@@ -549,40 +549,75 @@ export class BusinessService {
       BookingStatus.IN_PROGRESS,
     ];
 
-    const [totalStaff, totalBookedToday, activeBookings] = await Promise.all([
+    const [totalStaff, totalBookedTodayAgg, activeBookingsAgg] = await Promise.all([
+      // 1. Total Staff
       this.staffModel.countDocuments({
         businessId: businessObjectId,
         isDeleted: false,
       }),
-      this.bookingModel.countDocuments({
-        businessId: businessObjectId,
-        isDeleted: false,
-        'services.dateAndTime': { $gte: startOfToday, $lte: endOfToday },
-      }),
-      this.bookingModel
-        .find({
-          businessId: businessObjectId,
-          isDeleted: false,
-          bookingStatus: { $in: activeBookingStatuses },
-          'services.dateAndTime': { $lte: now },
-        })
-        .populate('services.serviceId', 'serviceDuration')
-        .lean(),
+      // 2. Total Booked Today (Number of service items)
+      this.bookingModel.aggregate([
+        {
+          $match: {
+            businessId: businessObjectId,
+            isDeleted: false,
+            'services.dateAndTime': { $gte: startOfToday, $lte: endOfToday },
+          },
+        },
+        { $unwind: '$services' },
+        {
+          $match: {
+            'services.dateAndTime': { $gte: startOfToday, $lte: endOfToday },
+          },
+        },
+        { $count: 'total' },
+      ]),
+      // 3. Data for Currently On Duty
+      this.bookingModel.aggregate([
+        {
+          $match: {
+            businessId: businessObjectId,
+            isDeleted: false,
+            bookingStatus: { $in: activeBookingStatuses },
+            'services.dateAndTime': { $lte: now },
+          },
+        },
+        { $unwind: '$services' },
+        {
+          $match: {
+            'services.dateAndTime': { $lte: now },
+          },
+        },
+        {
+          $lookup: {
+            from: 'services',
+            localField: 'services.serviceId',
+            foreignField: '_id',
+            as: 'serviceDetail',
+          },
+        },
+        { $unwind: '$serviceDetail' },
+        {
+          $project: {
+            selectedProvider: '$services.selectedProvider',
+            startTime: '$services.dateAndTime',
+            duration: '$serviceDetail.serviceDuration',
+          },
+        },
+      ]),
     ]);
+
+    const totalBookedToday = totalBookedTodayAgg[0]?.total || 0;
 
     // Calculate Currently On Duty
     const onDutyStaffIds = new Set<string>();
-    for (const booking of activeBookings) {
-      for (const item of booking.services) {
-        const startTime = new Date(item.dateAndTime);
-        const durationMinutes = this.parseDurationToMinutes(
-          (item.serviceId as any)?.serviceDuration || '30 mins',
-        );
-        const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
+    for (const item of activeBookingsAgg) {
+      const startTime = new Date(item.startTime);
+      const durationMinutes = this.parseDurationToMinutes(item.duration);
+      const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
 
-        if (startTime <= now && now < endTime) {
-          onDutyStaffIds.add(item.selectedProvider.toString());
-        }
+      if (startTime <= now && now < endTime) {
+        onDutyStaffIds.add(item.selectedProvider.toString());
       }
     }
 
