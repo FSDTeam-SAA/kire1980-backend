@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Connection, Model, Types } from 'mongoose';
-import { AuthUser, Booking, BusinessInfo, Service } from '../database/schemas';
+import { AuthUser, Booking, BusinessInfo, Service, StaffMember } from '../database/schemas';
 import { CustomLoggerService } from '../common/services/custom-logger.service';
 
 @Injectable()
@@ -19,6 +19,8 @@ export class AdminService {
     private readonly businessInfoModel: Model<BusinessInfo>,
     @InjectModel(Service.name)
     private readonly serviceModel: Model<Service>,
+    @InjectModel(StaffMember.name)
+    private readonly staffMemberModel: Model<StaffMember>,
     private readonly customLogger: CustomLoggerService,
     @InjectConnection()
     private readonly connection: Connection,
@@ -301,6 +303,31 @@ export class AdminService {
     return {
       limit: safeLimit,
       topBusinesses,
+    };
+  }
+
+  async getStaffManagementStats() {
+    const [totalServices, activeStaff, topCategoryData, totalBookings, totalBusinesses] = await Promise.all([
+      this.serviceModel.countDocuments({ isActive: true }),
+      this.staffMemberModel.countDocuments({ isActive: true, isDeleted: false }),
+      this.serviceModel.aggregate([
+        { $match: { isActive: true } },
+        { $group: { _id: '$category', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 1 },
+      ]),
+      this.bookingModel.countDocuments({ isDeleted: false }),
+      this.businessInfoModel.countDocuments({ deletedAt: null }),
+    ]);
+
+    const topCategory = topCategoryData.length > 0 ? topCategoryData[0]._id : 'N/A';
+    const avgBooking = totalBusinesses > 0 ? Number((totalBookings / totalBusinesses).toFixed(2)) : 0;
+
+    return {
+      totalServices,
+      active: activeStaff,
+      topCategory,
+      avgBooking,
     };
   }
 }

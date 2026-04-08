@@ -85,4 +85,19 @@ export class AdminController {
       data: topBusinesses,
     };
   }
+
+  @Get('staff-management-stats')
+  async getStaffManagementStats(@Request() req: { user: { role: string } }) {
+    if (req.user.role !== 'admin') {
+      throw new ForbiddenException('Only admin can access staff management stats');
+    }
+
+    const stats = await this.adminService.getStaffManagementStats();
+
+    return {
+      success: true,
+      message: 'Staff management statistics retrieved successfully',
+      data: stats,
+    };
+  }
 }

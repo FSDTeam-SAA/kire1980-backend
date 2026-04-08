@@ -10,6 +10,8 @@ import {
   BusinessInfoSchema,
   Service,
   ServiceSchema,
+  StaffMember,
+  StaffMemberSchema,
 } from '../database/schemas';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
@@ -22,6 +24,7 @@ import { AdminService } from './admin.service';
       { name: Booking.name, schema: BookingSchema },
       { name: BusinessInfo.name, schema: BusinessInfoSchema },
       { name: Service.name, schema: ServiceSchema },
+      { name: StaffMember.name, schema: StaffMemberSchema },
     ]),
   ],
   controllers: [AdminController],
