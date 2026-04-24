@@ -60,11 +60,17 @@ export class ServiceController {
   async findAll(
     @Query('title') title?: string,
     @Query('location') location?: string,
+    @Query('category') category?: string,
   ) {
-    const filters: { searchTitle?: string; location?: string } = {};
+    const filters: {
+      searchTitle?: string;
+      location?: string;
+      category?: string;
+    } = {};
 
     if (title?.trim()) filters.searchTitle = title.trim();
     if (location?.trim()) filters.location = location.trim();
+    if (category?.trim()) filters.category = category.trim();
 
     return this.serviceService.findAll(filters);
   }
