@@ -22,7 +22,7 @@ import { CreateBusinessDto } from './dto/create-business.dto';
 import { CustomLoggerService } from '../common/services/custom-logger.service';
 import { CloudinaryService } from '../common/services/cloudinary.service';
 import { createPaginatedResponse } from '../common/decorators/api-pagination.decorator';
-import { BusinessQueryDto } from './dto/business-query.dto';
+import { BusinessFilterType, BusinessQueryDto } from './dto/business-query.dto';
 import { REDIS_CLIENT } from '../common/modules/redis.module';
 import { Redis as RedisType } from 'ioredis';
 
@@ -289,8 +289,11 @@ export class BusinessService {
     }
   }
 
-  async getAllBusinesses(query: BusinessQueryDto, user?: { role: string }) {
-    const {
+  async getAllBusinesses(
+    query: BusinessQueryDto,
+    user?: { userId?: string; role: string },
+  ) {
+    let {
       page = 1,
       limit = 10,
       search,
@@ -300,6 +303,7 @@ export class BusinessService {
       country,
       postalCode,
       zipCode,
+      filterBy,
     } = query;
 
     const filter: any = {
@@ -332,12 +336,73 @@ export class BusinessService {
       filter.postalCode = resolvedPostalCode;
     }
 
-    const skip = (page - 1) * limit;
+    if (filterBy === BusinessFilterType.NEW) {
+      sortBy = 'createdAt';
+      sortOrder = 'desc';
+    }
+
+    if (filterBy === BusinessFilterType.BOOK_AGAIN) {
+      if (!user?.userId) {
+        throw new ForbiddenException(
+          'You must be logged in to use the book again filter',
+        );
+      }
+      const pastBookings = await this.bookingModel
+        .find({ userId: new Types.ObjectId(user.userId), isDeleted: false })
+        .distinct('businessId');
+
+      filter._id = { $in: pastBookings };
+    }
+
+    const skipCount = (page - 1) * limit;
+
+    if (filterBy === BusinessFilterType.MOST_POPULAR) {
+      const aggregationPipeline: any[] = [
+        { $match: filter },
+        {
+          $lookup: {
+            from: 'review_ratings',
+            let: { bId: '$_id' },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ['$businessId', '$$bId'] },
+                  isDeleted: false,
+                },
+              },
+            ],
+            as: 'reviewData',
+          },
+        },
+        {
+          $addFields: {
+            reviewsCount: { $size: '$reviewData' },
+          },
+        },
+        { $sort: { reviewsCount: -1, createdAt: -1 } },
+        { $skip: skipCount },
+        { $limit: limit },
+        { $project: { reviewData: 0, reviewsCount: 0 } },
+      ];
+
+      const [items, total] = await Promise.all([
+        this.businessModel.aggregate(aggregationPipeline),
+        this.businessModel.countDocuments(filter),
+      ]);
+
+      await this.businessModel.populate(items, {
+        path: 'ownerId',
+        select: 'fullName email role',
+      });
+
+      return createPaginatedResponse(items, total, page, limit);
+    }
+
     const [items, total] = await Promise.all([
       this.businessModel
         .find(filter)
         .sort({ [sortBy]: sortOrder === 'asc' ? 1 : -1 })
-        .skip(skip)
+        .skip(skipCount)
         .limit(limit)
         .populate('ownerId', 'fullName email role')
         .lean(),
