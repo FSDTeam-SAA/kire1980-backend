@@ -52,16 +52,16 @@
 
 This isn't just another boilerplate—it's a **battle-tested, production-grade foundation** that implements enterprise security patterns and best practices out of the box:
 
-| Feature | Why It Matters |
-|---------|----------------|
-| **JWT + Refresh Token Rotation** | Prevents token theft with automatic rotation on each refresh |
-| **Rate Limiting & Account Lockout** | Protects against brute force attacks |
-| **Timing Attack Prevention** | Consistent response times prevent user enumeration |
-| **Distributed Locks (Redis)** | Prevents race conditions in concurrent operations |
-| **Token Version for Instant Revocation** | Immediately invalidate all user sessions on security events |
-| **Centralized Logging (Loki)** | Aggregate logs from all services for debugging |
-| **Prometheus Metrics** | Real-time performance monitoring and alerting |
-| **Multi-stage Docker Builds** | Optimized production images (~50% smaller) |
+| Feature                                  | Why It Matters                                               |
+| ---------------------------------------- | ------------------------------------------------------------ |
+| **JWT + Refresh Token Rotation**         | Prevents token theft with automatic rotation on each refresh |
+| **Rate Limiting & Account Lockout**      | Protects against brute force attacks                         |
+| **Timing Attack Prevention**             | Consistent response times prevent user enumeration           |
+| **Distributed Locks (Redis)**            | Prevents race conditions in concurrent operations            |
+| **Token Version for Instant Revocation** | Immediately invalidate all user sessions on security events  |
+| **Centralized Logging (Loki)**           | Aggregate logs from all services for debugging               |
+| **Prometheus Metrics**                   | Real-time performance monitoring and alerting                |
+| **Multi-stage Docker Builds**            | Optimized production images (~50% smaller)                   |
 
 ---
 
@@ -91,6 +91,7 @@ npm run start:dev
 ```
 
 **Verify installation:**
+
 - API Health: http://localhost:5000
 - API Docs: Import `postman-collection.json` into Postman
 - PgAdmin: http://localhost:8080 (admin@example.com / admin)
@@ -103,6 +104,7 @@ npm run start:dev
 ## ✨ Features
 
 ### 🔐 Authentication & Security
+
 - **JWT Authentication** with access & refresh tokens
 - **Token Rotation** - New refresh token on each refresh (prevents token theft)
 - **Email Verification** with 6-digit OTP codes (24h expiry)
@@ -114,6 +116,7 @@ npm run start:dev
 - **Timing Attack Prevention** - Consistent response times
 
 ### 📧 Email System (BullMQ)
+
 - **Async Email Processing** with BullMQ job queue
 - **Automatic Retries** - 3 attempts with exponential backoff
 - **Email Templates** - HTML templates for verification & welcome emails
@@ -121,12 +124,14 @@ npm run start:dev
 - **Multiple Email Types** - Verification, password reset, notifications
 
 ### 🔗 OAuth Integration
+
 - **Google OAuth 2.0** - Login with Google account
 - **Provider Abstraction** - Easy to add more providers (GitHub, Facebook)
 - **Account Linking** - Link OAuth to existing accounts
 - **Secure Callback Handling** - State validation and token exchange
 
 ### 📦 Infrastructure
+
 - **PostgreSQL 17** with Prisma ORM (modular schema)
 - **Redis Stack** for caching, sessions, and distributed locks
 - **BullMQ** for background job processing (emails, notifications)
@@ -134,6 +139,7 @@ npm run start:dev
 - **Multi-stage Docker builds** for production (~50% smaller images)
 
 ### 📊 Monitoring & Observability
+
 - **Prometheus** metrics collection (request duration, errors, active users)
 - **Grafana** dashboards (auto-provisioned)
 - **Loki** log aggregation (structured JSON logs)
@@ -141,6 +147,7 @@ npm run start:dev
 - **Health checks** on startup
 
 ### 🚀 Developer Experience
+
 - **TypeScript 5.7** with strict mode
 - **ESLint + Prettier** configured
 - **Unit tests** with Jest + mocks
@@ -152,23 +159,23 @@ npm run start:dev
 
 ## 🛠 Tech Stack
 
-| Category | Technology |
-|----------|------------|
-| **Framework** | NestJS 11 |
-| **Language** | TypeScript 5.7 |
-| **ORM** | Prisma 7 |
-| **Database** | PostgreSQL 17 |
-| **Cache/Queue** | Redis Stack (with RedisInsight UI) |
-| **Job Queue** | BullMQ |
-| **Auth** | JWT (jsonwebtoken) |
-| **Validation** | class-validator, class-transformer |
-| **Logging** | Winston + Loki |
-| **Metrics** | Prometheus (prom-client) |
-| **Visualization** | Grafana |
-| **Email** | Nodemailer |
-| **Testing** | Jest |
-| **Containerization** | Docker, Docker Compose |
-| **CI/CD** | GitHub Actions |
+| Category             | Technology                         |
+| -------------------- | ---------------------------------- |
+| **Framework**        | NestJS 11                          |
+| **Language**         | TypeScript 5.7                     |
+| **ORM**              | Prisma 7                           |
+| **Database**         | PostgreSQL 17                      |
+| **Cache/Queue**      | Redis Stack (with RedisInsight UI) |
+| **Job Queue**        | BullMQ                             |
+| **Auth**             | JWT (jsonwebtoken)                 |
+| **Validation**       | class-validator, class-transformer |
+| **Logging**          | Winston + Loki                     |
+| **Metrics**          | Prometheus (prom-client)           |
+| **Visualization**    | Grafana                            |
+| **Email**            | Nodemailer                         |
+| **Testing**          | Jest                               |
+| **Containerization** | Docker, Docker Compose             |
+| **CI/CD**            | GitHub Actions                     |
 
 ---
 
@@ -196,7 +203,7 @@ sequenceDiagram
     A->>R: Store code
     A->>Q: Queue verification email
     A-->>C: 201 Created
-    
+
     Note over C,Q: User receives email with code
 
     C->>A: POST /auth/verify-email
@@ -218,12 +225,12 @@ sequenceDiagram
     C->>A: POST /auth/login
     A->>R: Check rate limit (email + IP)
     A->>DB: Fetch user with security data
-    
+
     alt User not found
         A->>A: Run fake bcrypt (timing attack prevention)
         A-->>C: 401 Invalid credentials
     end
-    
+
     A->>A: Check account status
     A->>A: Check account lockout
     A->>A: Verify password (bcrypt)
@@ -249,15 +256,15 @@ sequenceDiagram
     C->>A: POST /auth/refresh
     A->>A: Verify refresh token signature
     A->>R: Get stored token by JTI
-    
+
     alt Token not found (possibly reused)
         A->>R: Revoke ALL user tokens
         A-->>C: 401 Token revoked
     end
-    
+
     A->>A: Validate token hash
     A->>DB: Check user status
-    
+
     Note over A,R: Token Rotation
     A->>R: Delete old refresh token
     A->>A: Generate new JTI
@@ -289,7 +296,7 @@ sequenceDiagram
     A->>G: Exchange code for tokens
     G-->>A: Return access_token, id_token
     A->>G: Fetch user profile from id_token
-    
+
     alt New User
         A->>DB: Create user with provider=google
         A->>DB: Mark as verified (Google verified email)
@@ -315,27 +322,27 @@ sequenceDiagram
 
     C->>G: Request with Authorization
     G->>G: Extract token from header
-    
+
     alt No token provided
         G-->>C: 401 Unauthorized - No token found
     end
 
     G->>G: Verify JWT signature & expiry
-    
+
     alt Invalid/Expired token
         G-->>C: 401 Unauthorized - Invalid token
     end
 
     G->>G: Extract userId, role, tokenVersion from JWT
-    
+
     Note over G,R: Hybrid Token Validation
     G->>R: GET tokenVersion from cache
-    
+
     alt Cache hit
         G->>G: Compare tokenVersion
     else Cache miss
         G->>DB: Fetch user tokenVersion & status
-        G->>R: Cache tokenVersion 
+        G->>R: Cache tokenVersion
     end
 
     alt tokenVersion mismatch
@@ -351,18 +358,17 @@ sequenceDiagram
     Ctrl-->>C: Response
 ```
 
-
 ### Security Features
 
-| Feature | Configuration | File |
-|---------|---------------|------|
-| **Access Token Expiry** | 15 minutes | `src/auth/config/auth.config.ts` |
-| **Refresh Token Expiry** | 7 days | `src/auth/config/auth.config.ts` |
-| **Max Login Attempts** | 5 per 15 minutes | `src/auth/config/auth.config.ts` |
-| **Account Lockout** | 30 minutes after max attempts | `src/auth/config/auth.config.ts` |
-| **Max Devices per User** | 5 simultaneous sessions | `src/auth/config/auth.config.ts` |
-| **Password Requirements** | Min 8 chars, uppercase, lowercase, number, special char | `src/auth/config/auth.config.ts` |
-| **Verification Code Expiry** | 24 hours | `src/auth/config/auth.config.ts` |
+| Feature                      | Configuration                                           | File                             |
+| ---------------------------- | ------------------------------------------------------- | -------------------------------- |
+| **Access Token Expiry**      | 15 minutes                                              | `src/auth/config/auth.config.ts` |
+| **Refresh Token Expiry**     | 7 days                                                  | `src/auth/config/auth.config.ts` |
+| **Max Login Attempts**       | 5 per 15 minutes                                        | `src/auth/config/auth.config.ts` |
+| **Account Lockout**          | 30 minutes after max attempts                           | `src/auth/config/auth.config.ts` |
+| **Max Devices per User**     | 5 simultaneous sessions                                 | `src/auth/config/auth.config.ts` |
+| **Password Requirements**    | Min 8 chars, uppercase, lowercase, number, special char | `src/auth/config/auth.config.ts` |
+| **Verification Code Expiry** | 24 hours                                                | `src/auth/config/auth.config.ts` |
 
 ### Customizing Auth Configuration
 
@@ -381,8 +387,8 @@ export const AUTH_CONFIG = {
 
   // Token Configuration - Modify expiry times
   TOKEN_EXPIRY: {
-    ACCESS: '15m',     // Short-lived for security
-    REFRESH: '7d',     // 7 days
+    ACCESS: '15m', // Short-lived for security
+    REFRESH: '7d', // 7 days
     VERIFICATION: '24h',
     PASSWORD_RESET: '1h',
   },
@@ -408,26 +414,26 @@ export const AUTH_CONFIG = {
 
 ### API Endpoints
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| `POST` | `/auth` | ❌ | Register new user |
-| `POST` | `/auth/verify-email` | ❌ | Verify email with OTP |
-| `POST` | `/auth/resend-verification-email` | ❌ | Resend verification email |
-| `POST` | `/auth/login` | ❌ | Login and get tokens |
-| `POST` | `/auth/refresh-token` | ❌ | Refresh access token |
-| `POST` | `/auth/logout` | ❌ | Logout (revoke refresh token) |
-| `POST` | `/auth/logout-all` | ❌ | Logout all devices |
-| `GET` | `/auth/google` | ❌ | Initiate Google OAuth |
-| `GET` | `/auth/google/callback` | ❌ | Google OAuth callback |
-| `POST` | `/auth/google/callback` | ❌ | Google OAuth callback (POST) |
-| `GET` | `/user` | ❌* | List all users |
-| `GET` | `/user/:id` | ❌* | Get user by ID |
-| `PATCH` | `/user/:id` | ❌* | Update user |
-| `DELETE` | `/user/:id` | ❌* | Delete user |
-| `GET` | `/` | ❌ | Health check |
-| `GET` | `/metrics` | ❌ | Prometheus metrics |
+| Method   | Endpoint                          | Auth | Description                   |
+| -------- | --------------------------------- | ---- | ----------------------------- |
+| `POST`   | `/auth`                           | ❌   | Register new user             |
+| `POST`   | `/auth/verify-email`              | ❌   | Verify email with OTP         |
+| `POST`   | `/auth/resend-verification-email` | ❌   | Resend verification email     |
+| `POST`   | `/auth/login`                     | ❌   | Login and get tokens          |
+| `POST`   | `/auth/refresh-token`             | ❌   | Refresh access token          |
+| `POST`   | `/auth/logout`                    | ❌   | Logout (revoke refresh token) |
+| `POST`   | `/auth/logout-all`                | ❌   | Logout all devices            |
+| `GET`    | `/auth/google`                    | ❌   | Initiate Google OAuth         |
+| `GET`    | `/auth/google/callback`           | ❌   | Google OAuth callback         |
+| `POST`   | `/auth/google/callback`           | ❌   | Google OAuth callback (POST)  |
+| `GET`    | `/user`                           | ❌\* | List all users                |
+| `GET`    | `/user/:id`                       | ❌\* | Get user by ID                |
+| `PATCH`  | `/user/:id`                       | ❌\* | Update user                   |
+| `DELETE` | `/user/:id`                       | ❌\* | Delete user                   |
+| `GET`    | `/`                               | ❌   | Health check                  |
+| `GET`    | `/metrics`                        | ❌   | Prometheus metrics            |
 
-> *Note: User endpoints are currently public. See [Adding Protected Routes](#-adding-protected-routes) to secure them.
+> \*Note: User endpoints are currently public. See [Adding Protected Routes](#-adding-protected-routes) to secure them.
 
 ---
 
@@ -638,7 +644,6 @@ npx prisma generate
 
 ---
 
-
 ## 📁 Project Structure
 
 ```
@@ -720,12 +725,14 @@ nestjs-prisma-postgres-starter/
 ### Installation
 
 1. **Clone the repository**
+
    ```bash
    git clone https://github.com/the-pujon/nestjs-prisma-postgres-starter.git
    cd nestjs-prisma-postgres-starter
    ```
 
 2. **Create environment file**
+
    ```bash
    cp .env.example .env
    ```
@@ -733,61 +740,66 @@ nestjs-prisma-postgres-starter/
 3. **Update `.env`** with your configuration (see [Environment Configuration](#-environment-configuration))
 
 4. **Start Docker services**
+
    ```bash
    # Start all services (PostgreSQL, Redis, Prometheus, Grafana, Loki)
    docker compose up -d
    ```
 
 5. **Install dependencies**
+
    ```bash
    npm install
    ```
 
 6. **Run database migrations**
+
    ```bash
    npx prisma migrate dev
    ```
 
 7. **Generate Prisma client**
+
    ```bash
    npx prisma generate
    ```
 
-7. **Start the application**
+8. **Start the application**
+
    ```bash
    # Development mode with hot reload
    npm run start:dev
-   
+
    # Or production mode
    npm run build && npm run start:prod
    ```
 
 ### Available NPM Scripts
 
-| Script | Description |
-|--------|-------------|
-| `npm run start:dev` | Start in development mode with hot reload |
-| `npm run start:debug` | Start in debug mode with inspector |
-| `npm run start:prod` | Start in production mode |
-| `npm run build` | Build the application |
-| `npm run test` | Run unit tests |
-| `npm run test:watch` | Run tests in watch mode |
-| `npm run test:cov` | Run tests with coverage report |
-| `npm run test:e2e` | Run end-to-end tests |
-| `npm run lint` | Run ESLint and fix issues |
-| `npm run format` | Format code with Prettier |
-| `npm run docker:dev` | Start Docker services |
+| Script                | Description                               |
+| --------------------- | ----------------------------------------- |
+| `npm run start:dev`   | Start in development mode with hot reload |
+| `npm run start:debug` | Start in debug mode with inspector        |
+| `npm run start:prod`  | Start in production mode                  |
+| `npm run build`       | Build the application                     |
+| `npm run test`        | Run unit tests                            |
+| `npm run test:watch`  | Run tests in watch mode                   |
+| `npm run test:cov`    | Run tests with coverage report            |
+| `npm run test:e2e`    | Run end-to-end tests                      |
+| `npm run lint`        | Run ESLint and fix issues                 |
+| `npm run format`      | Format code with Prettier                 |
+| `npm run docker:dev`  | Start Docker services                     |
 
 ### Prisma Commands
 
-| Command | Description |
-|---------|-------------|
-| `npx prisma generate` | Generate Prisma Client |
-| `npx prisma migrate dev` | Create and apply new migration |
-| `npx prisma migrate deploy` | Apply pending migrations (production) |
-| `npx prisma migrate reset` | Reset database and apply all migrations |
-| `npx prisma studio` | Open Prisma Studio GUI |
-| `npx prisma db push` | Push schema changes without migration |
+| Command                     | Description                             |
+| --------------------------- | --------------------------------------- |
+| `npx prisma generate`       | Generate Prisma Client                  |
+| `npx prisma migrate dev`    | Create and apply new migration          |
+| `npx prisma migrate deploy` | Apply pending migrations (production)   |
+| `npx prisma migrate reset`  | Reset database and apply all migrations |
+| `npx prisma studio`         | Open Prisma Studio GUI                  |
+| `npx prisma db push`        | Push schema changes without migration   |
 
 8. **Verify installation**
    - API: http://localhost:5000
@@ -799,7 +811,6 @@ nestjs-prisma-postgres-starter/
 
 ---
 
-
 ## 📚 API Documentation
 
 This project includes **automatic Swagger/OpenAPI documentation** with zero configuration required.
@@ -809,6 +820,7 @@ Once the application is running, access the interactive API documentation at:
 **👉 [http://localhost:5000/docs](http://localhost:5000/docs)**
 
 ### Features:
+
 - ✅ **Zero decorators required** - DTOs are automatically documented
 - ✅ **Global response format** - Consistent API responses
 - ✅ **JWT authentication** - Bearer token support built-in
@@ -823,47 +835,51 @@ For detailed information, see [docs/SWAGGER.md](docs/SWAGGER.md)
 
 ### Complete Environment Variables Reference
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| **Database** |
-| `DATABASE_URL` | ✅ | - | PostgreSQL connection string |
-| `POSTGRES_USER` | ✅ | - | PostgreSQL username (for Docker) |
-| `POSTGRES_PASSWORD` | ✅ | - | PostgreSQL password (for Docker) |
-| `POSTGRES_DB` | ✅ | - | PostgreSQL database name |
-| `DATABASE_PORT` | ❌ | `5433` | PostgreSQL port mapping |
-| `DATABASE_HOST` | ❌ | `127.0.0.1` | PostgreSQL host |
-| **Application** |
-| `NODE_ENV` | ❌ | `development` | Environment: `development`, `production`, `test` |
-| `PORT` | ❌ | `5000` | Application port |
-| **JWT Authentication** |
-| `JWT_SECRET` | ✅ | - | JWT signing secret (min 256 bits) |
-| `JWT_ACCESS_SECRET` | ❌ | `JWT_SECRET` | Separate secret for access tokens |
-| `JWT_REFRESH_SECRET` | ❌ | `JWT_SECRET` | Separate secret for refresh tokens |
-| **Redis** |
-| `REDIS_HOST` | ❌ | `localhost` | Redis server host |
-| `REDIS_PORT` | ❌ | `6379` | Redis server port |
-| `REDIS_USER` | ❌ | `default` | Redis username |
-| `REDIS_PASSWORD` | ❌ | - | Redis password |
-| `REDIS_DB` | ❌ | `0` | Redis database number |
-| `REDIS_CACHE_KEY_PREFIX` | ❌ | `app` | Prefix for all Redis keys |
-| **Email (SMTP)** |
-| `EMAIL_HOST` | ✅ | `smtp.gmail.com` | SMTP server host |
-| `EMAIL_PORT` | ❌ | `587` | SMTP server port |
-| `EMAIL_USER` | ✅ | - | SMTP username (email address) |
-| `EMAIL_PASS` | ✅ | - | SMTP password (App Password for Gmail) |
-| `EMAIL_FROM` | ❌ | `EMAIL_USER` | From address for outgoing emails |
-| **Google OAuth** |
-| `GOOGLE_CLIENT_ID` | ❌ | - | Google OAuth client ID |
-| `GOOGLE_CLIENT_SECRET` | ❌ | - | Google OAuth client secret |
-| `GOOGLE_REDIRECT_URI` | ❌ | - | OAuth callback URL |
-| **Monitoring** |
-| `GRAFANA_ADMIN_USER` | ❌ | `admin` | Grafana admin username |
-| `GRAFANA_ADMIN_PASSWORD` | ❌ | `admin` | Grafana admin password |
-| `LOKI_ENABLED` | ❌ | `true` | Enable Loki log aggregation |
-| `LOKI_URL` | ❌ | `http://localhost:3100` | Loki server URL |
-| **PgAdmin** |
-| `PGADMIN_DEFAULT_EMAIL` | ❌ | `admin@example.com` | PgAdmin login email |
-| `PGADMIN_DEFAULT_PASSWORD` | ❌ | `admin` | PgAdmin login password |
+| Variable                   | Required | Default                 | Description                                      |
+| -------------------------- | -------- | ----------------------- | ------------------------------------------------ |
+| **Database**               |
+| `DATABASE_URL`             | ✅       | -                       | PostgreSQL connection string                     |
+| `POSTGRES_USER`            | ✅       | -                       | PostgreSQL username (for Docker)                 |
+| `POSTGRES_PASSWORD`        | ✅       | -                       | PostgreSQL password (for Docker)                 |
+| `POSTGRES_DB`              | ✅       | -                       | PostgreSQL database name                         |
+| `DATABASE_PORT`            | ❌       | `5433`                  | PostgreSQL port mapping                          |
+| `DATABASE_HOST`            | ❌       | `127.0.0.1`             | PostgreSQL host                                  |
+| **Application**            |
+| `NODE_ENV`                 | ❌       | `development`           | Environment: `development`, `production`, `test` |
+| `PORT`                     | ❌       | `5000`                  | Application port                                 |
+| **JWT Authentication**     |
+| `JWT_SECRET`               | ✅       | -                       | JWT signing secret (min 256 bits)                |
+| `JWT_ACCESS_SECRET`        | ❌       | `JWT_SECRET`            | Separate secret for access tokens                |
+| `JWT_REFRESH_SECRET`       | ❌       | `JWT_SECRET`            | Separate secret for refresh tokens               |
+| **Redis**                  |
+| `REDIS_HOST`               | ❌       | `localhost`             | Redis server host                                |
+| `REDIS_PORT`               | ❌       | `6379`                  | Redis server port                                |
+| `REDIS_USER`               | ❌       | `default`               | Redis username                                   |
+| `REDIS_PASSWORD`           | ❌       | -                       | Redis password                                   |
+| `REDIS_DB`                 | ❌       | `0`                     | Redis database number                            |
+| `REDIS_CACHE_KEY_PREFIX`   | ❌       | `app`                   | Prefix for all Redis keys                        |
+| **Email (SMTP)**           |
+| `EMAIL_HOST`               | ✅       | `smtp.gmail.com`        | SMTP server host                                 |
+| `EMAIL_PORT`               | ❌       | `587`                   | SMTP server port                                 |
+| `EMAIL_USER`               | ✅       | -                       | SMTP username (email address)                    |
+| `EMAIL_PASS`               | ✅       | -                       | SMTP password (App Password for Gmail)           |
+| `EMAIL_FROM`               | ❌       | `EMAIL_USER`            | From address for outgoing emails                 |
+| **Twilio SMS**             |
+| `TWILIO_ACCOUNT_SID`       | ✅       | -                       | Twilio Account SID                               |
+| `TWILIO_AUTH_TOKEN`        | ✅       | -                       | Twilio Auth Token                                |
+| `TWILIO_PHONE_NUMBER`      | ✅       | -                       | Sender phone number in E.164 format              |
+| **Google OAuth**           |
+| `GOOGLE_CLIENT_ID`         | ❌       | -                       | Google OAuth client ID                           |
+| `GOOGLE_CLIENT_SECRET`     | ❌       | -                       | Google OAuth client secret                       |
+| `GOOGLE_REDIRECT_URI`      | ❌       | -                       | OAuth callback URL                               |
+| **Monitoring**             |
+| `GRAFANA_ADMIN_USER`       | ❌       | `admin`                 | Grafana admin username                           |
+| `GRAFANA_ADMIN_PASSWORD`   | ❌       | `admin`                 | Grafana admin password                           |
+| `LOKI_ENABLED`             | ❌       | `true`                  | Enable Loki log aggregation                      |
+| `LOKI_URL`                 | ❌       | `http://localhost:3100` | Loki server URL                                  |
+| **PgAdmin**                |
+| `PGADMIN_DEFAULT_EMAIL`    | ❌       | `admin@example.com`     | PgAdmin login email                              |
+| `PGADMIN_DEFAULT_PASSWORD` | ❌       | `admin`                 | PgAdmin login password                           |
 
 ### Create `.env` File
 
@@ -911,6 +927,13 @@ EMAIL_PASS=your-app-password           # Use Gmail App Password
 EMAIL_FROM=noreply@yourapp.com
 
 # ═══════════════════════════════════════════════════════════════
+# TWILIO SMS CONFIGURATION
+# ═══════════════════════════════════════════════════════════════
+TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_AUTH_TOKEN=your-twilio-auth-token
+TWILIO_PHONE_NUMBER=+15005550006
+
+# ═══════════════════════════════════════════════════════════════
 # GOOGLE OAUTH (Optional)
 # ═══════════════════════════════════════════════════════════════
 # Get credentials: https://console.cloud.google.com/apis/credentials
@@ -941,7 +964,6 @@ LOKI_URL=http://localhost:3100
 4. Use this password in `EMAIL_PASS`
 
 ---
-
 
 ## 📡 API Reference
 
@@ -976,6 +998,7 @@ All API responses follow a consistent format:
 ### Authentication Endpoints
 
 #### Register User
+
 ```http
 POST /auth
 Content-Type: application/json
@@ -988,6 +1011,7 @@ Content-Type: application/json
 ```
 
 **Password Requirements:**
+
 - Minimum 8 characters
 - At least 1 uppercase letter
 - At least 1 lowercase letter
@@ -995,6 +1019,7 @@ Content-Type: application/json
 - At least 1 special character
 
 **Response (201 Created):**
+
 ```json
 {
   "statusCode": 201,
@@ -1002,11 +1027,13 @@ Content-Type: application/json
   "data": null
 }
 ```
+
 > A verification email with 6-digit code will be sent to the user.
 
 ---
 
 #### Verify Email
+
 ```http
 POST /auth/verify-email
 Content-Type: application/json
@@ -1018,6 +1045,7 @@ Content-Type: application/json
 ```
 
 **Response (200 OK):**
+
 ```json
 {
   "statusCode": 200,
@@ -1031,6 +1059,7 @@ Content-Type: application/json
 ---
 
 #### Resend Verification Email
+
 ```http
 POST /auth/resend-verification-email
 Content-Type: application/json
@@ -1045,6 +1074,7 @@ Content-Type: application/json
 ---
 
 #### Login
+
 ```http
 POST /auth/login
 Content-Type: application/json
@@ -1056,6 +1086,7 @@ Content-Type: application/json
 ```
 
 **Response (200 OK):**
+
 ```json
 {
   "statusCode": 200,
@@ -1080,6 +1111,7 @@ Content-Type: application/json
 ---
 
 #### Refresh Token
+
 ```http
 POST /auth/refresh-token
 Content-Type: application/json
@@ -1090,6 +1122,7 @@ Content-Type: application/json
 ```
 
 **Response (200 OK):**
+
 ```json
 {
   "statusCode": 200,
@@ -1107,6 +1140,7 @@ Content-Type: application/json
 ---
 
 #### Logout
+
 ```http
 POST /auth/logout
 Content-Type: application/json
@@ -1118,6 +1152,7 @@ Content-Type: application/json
 ```
 
 **Response (200 OK):**
+
 ```json
 {
   "statusCode": 200,
@@ -1132,6 +1167,7 @@ Content-Type: application/json
 ---
 
 #### Logout All Devices
+
 ```http
 POST /auth/logout-all
 Content-Type: application/json
@@ -1142,6 +1178,7 @@ Content-Type: application/json
 ```
 
 **Response (200 OK):**
+
 ```json
 {
   "statusCode": 200,
@@ -1160,11 +1197,13 @@ Content-Type: application/json
 ### Google OAuth Endpoints
 
 #### Initiate Google OAuth
+
 ```http
 GET /auth/google?redirectUrl=http://localhost:3000/dashboard
 ```
 
 **Response (200 OK):**
+
 ```json
 {
   "statusCode": 200,
@@ -1180,16 +1219,19 @@ GET /auth/google?redirectUrl=http://localhost:3000/dashboard
 ---
 
 #### Google OAuth Callback
+
 ```http
 GET /auth/google/callback?code=AUTH_CODE&state=STATE_TOKEN
 ```
 
 **Browser Flow:** Redirects to `redirectUrl` with tokens as query params:
+
 ```
 http://localhost:3000/dashboard?access_token=xxx&refresh_token=xxx&user_id=xxx&email=xxx&is_new_user=false
 ```
 
 **API Flow (POST):**
+
 ```http
 POST /auth/google/callback
 Content-Type: application/json
@@ -1201,6 +1243,7 @@ Content-Type: application/json
 ```
 
 **Response (200 OK):**
+
 ```json
 {
   "statusCode": 200,
@@ -1227,6 +1270,7 @@ Content-Type: application/json
 ### User Endpoints
 
 #### Get All Users
+
 ```http
 GET /user
 ```
@@ -1234,6 +1278,7 @@ GET /user
 ---
 
 #### Get User by ID
+
 ```http
 GET /user/:id
 ```
@@ -1241,6 +1286,7 @@ GET /user/:id
 ---
 
 #### Update User
+
 ```http
 PATCH /user/:id
 Content-Type: application/json
@@ -1253,6 +1299,7 @@ Content-Type: application/json
 ---
 
 #### Delete User
+
 ```http
 DELETE /user/:id
 ```
@@ -1262,11 +1309,13 @@ DELETE /user/:id
 ### Health & Metrics
 
 #### Health Check
+
 ```http
 GET /
 ```
 
 **Response:**
+
 ```json
 {
   "statusCode": 200,
@@ -1278,6 +1327,7 @@ GET /
 ---
 
 #### Prometheus Metrics
+
 ```http
 GET /metrics
 ```
@@ -1293,6 +1343,7 @@ Import `postman-collection.json` into Postman for a complete API testing environ
 ### Example Requests
 
 #### Register User
+
 ```bash
 curl -X POST http://localhost:5000/auth/signup \
   -H "Content-Type: application/json" \
@@ -1304,6 +1355,7 @@ curl -X POST http://localhost:5000/auth/signup \
 ```
 
 #### Login
+
 ```bash
 curl -X POST http://localhost:5000/auth/login \
   -H "Content-Type: application/json" \
@@ -1314,6 +1366,7 @@ curl -X POST http://localhost:5000/auth/login \
 ```
 
 #### Protected Route
+
 ```bash
 curl -X GET http://localhost:5000/user/me \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
@@ -1383,7 +1436,7 @@ getProfile(@Request() req) {
   // req.user contains: { userId, role, tokenVersion }
   console.log(req.user.userId);    // User's UUID
   console.log(req.user.role);      // 'USER' | 'ADMIN' | 'MODERATOR' | 'SUPERADMIN'
-  
+
   return this.userService.findById(req.user.userId);
 }
 ```
@@ -1518,7 +1571,13 @@ npx prisma migrate dev --name add_product_model
 Create `src/product/dto/create-product.dto.ts`:
 
 ```typescript
-import { IsString, IsNumber, IsOptional, Min, MaxLength } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsOptional,
+  Min,
+  MaxLength,
+} from 'class-validator';
 
 export class CreateProductDto {
   @IsString()
@@ -1560,7 +1619,11 @@ export class ProductService {
     private readonly activityLog: ActivityLogService,
   ) {}
 
-  async create(dto: CreateProductDto, userId: string, meta: { ip: string; userAgent: string }) {
+  async create(
+    dto: CreateProductDto,
+    userId: string,
+    meta: { ip: string; userAgent: string },
+  ) {
     this.logger.log(`Creating product: ${dto.name}`, 'ProductService');
 
     const product = await this.prisma.$transaction(async (tx) => {
@@ -1588,7 +1651,7 @@ export class ProductService {
 
   async findAll(page = 1, limit = 10) {
     const skip = (page - 1) * limit;
-    
+
     const [products, total] = await Promise.all([
       this.prisma.product.findMany({
         where: { isActive: true },
@@ -1628,7 +1691,16 @@ export class ProductService {
 
 ```typescript
 // src/product/product.controller.ts
-import { Controller, Get, Post, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
 import { ProductService } from './product.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { AuthGuard } from '../common/guards/auth.guard';
@@ -1702,7 +1774,7 @@ export class ProductService {
 
   async findOne(id: string) {
     const cacheKey = `product:${id}`;
-    
+
     // Try cache first
     const cached = await this.redis.get(cacheKey);
     if (cached) {
@@ -1807,11 +1879,14 @@ export class NotificationProcessor extends WorkerHost {
 
   // This method is called automatically when a job is picked from the queue
   async process(job: Job<PushNotificationJob>): Promise<void> {
-    this.logger.info(`Processing notification job: ${job.name} (ID: ${job.id})`, {
-      context: 'NotificationProcessor',
-      jobId: job.id,
-      jobName: job.name,
-    });
+    this.logger.info(
+      `Processing notification job: ${job.name} (ID: ${job.id})`,
+      {
+        context: 'NotificationProcessor',
+        jobId: job.id,
+        jobName: job.name,
+      },
+    );
 
     try {
       const { userId, title, body } = job.data;
@@ -1829,7 +1904,7 @@ export class NotificationProcessor extends WorkerHost {
         jobId: job.id,
         error: error instanceof Error ? error.message : String(error),
       });
-      
+
       // Re-throw to trigger retry (based on job config)
       throw error;
     }
@@ -1864,10 +1939,7 @@ import { NotificationProcessor } from '../queues/notification/notification.proce
         port: parseInt(process.env.REDIS_PORT || '6379'),
       },
     }),
-    BullModule.registerQueue(
-      { name: 'email' },
-      { name: 'notification' },
-    ),
+    BullModule.registerQueue({ name: 'email' }, { name: 'notification' }),
   ],
   providers: [
     NotificationQueueService,
@@ -1886,9 +1958,7 @@ import { NotificationQueueService } from '../common/queues/notification/notifica
 
 @Injectable()
 export class OrderService {
-  constructor(
-    private readonly notificationQueue: NotificationQueueService,
-  ) {}
+  constructor(private readonly notificationQueue: NotificationQueueService) {}
 
   async createOrder(data: CreateOrderDto, userId: string) {
     const order = await this.prisma.order.create({ data });
@@ -1909,16 +1979,16 @@ export class OrderService {
 
 ```typescript
 await this.queue.add('job-name', jobData, {
-  attempts: 3,              // Retry 3 times on failure
+  attempts: 3, // Retry 3 times on failure
   backoff: {
-    type: 'exponential',    // exponential, fixed
-    delay: 2000,            // Initial delay: 2s, then 4s, 8s...
+    type: 'exponential', // exponential, fixed
+    delay: 2000, // Initial delay: 2s, then 4s, 8s...
   },
-  delay: 5000,              // Delay job execution by 5 seconds
-  priority: 1,              // Lower = higher priority
-  removeOnComplete: 100,    // Keep last 100 completed jobs
-  removeOnFail: 500,        // Keep last 500 failed jobs
-  timeout: 30000,           // Job timeout: 30 seconds
+  delay: 5000, // Delay job execution by 5 seconds
+  priority: 1, // Lower = higher priority
+  removeOnComplete: 100, // Keep last 100 completed jobs
+  removeOnFail: 500, // Keep last 500 failed jobs
+  timeout: 30000, // Job timeout: 30 seconds
 });
 ```
 
@@ -1945,9 +2015,14 @@ export class ProductService {
     private readonly prisma: PrismaService,
   ) {}
 
-  async update(id: string, data: UpdateProductDto, userId: string, meta: { ip: string; userAgent: string }) {
+  async update(
+    id: string,
+    data: UpdateProductDto,
+    userId: string,
+    meta: { ip: string; userAgent: string },
+  ) {
     const oldProduct = await this.prisma.product.findUnique({ where: { id } });
-    
+
     const updated = await this.prisma.$transaction(async (tx) => {
       const product = await tx.product.update({
         where: { id },
@@ -1987,10 +2062,10 @@ export class OrderService {
 
   async createOrder(data: CreateOrderDto) {
     const order = await this.prisma.order.create({ data });
-    
+
     // Track custom metrics
     this.metrics.recordDatabaseQuery('create', 'Order');
-    
+
     return order;
   }
 }
@@ -2007,29 +2082,44 @@ Create `templates/emails/order-confirmation.html`:
 ```html
 <!DOCTYPE html>
 <html>
-<head>
-  <style>
-    .container { max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif; }
-    .header { background: #4F46E5; color: white; padding: 20px; text-align: center; }
-    .content { padding: 20px; }
-    .order-details { background: #f5f5f5; padding: 15px; border-radius: 5px; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>Order Confirmed!</h1>
-    </div>
-    <div class="content">
-      <p>Hi {{username}},</p>
-      <p>Your order <strong>#{{orderId}}</strong> has been confirmed.</p>
-      <div class="order-details">
-        <p><strong>Order Total:</strong> ${{total}}</p>
-        <p><strong>Estimated Delivery:</strong> {{deliveryDate}}</p>
+  <head>
+    <style>
+      .container {
+        max-width: 600px;
+        margin: 0 auto;
+        font-family: Arial, sans-serif;
+      }
+      .header {
+        background: #4f46e5;
+        color: white;
+        padding: 20px;
+        text-align: center;
+      }
+      .content {
+        padding: 20px;
+      }
+      .order-details {
+        background: #f5f5f5;
+        padding: 15px;
+        border-radius: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>Order Confirmed!</h1>
+      </div>
+      <div class="content">
+        <p>Hi {{username}},</p>
+        <p>Your order <strong>#{{orderId}}</strong> has been confirmed.</p>
+        <div class="order-details">
+          <p><strong>Order Total:</strong> ${{total}}</p>
+          <p><strong>Estimated Delivery:</strong> {{deliveryDate}}</p>
+        </div>
       </div>
     </div>
-  </div>
-</body>
+  </body>
 </html>
 ```
 
@@ -2081,7 +2171,6 @@ async sendOrderConfirmationEmail(
 
 Update the email processor to handle the new job type.
 
-
 ---
 
 ## ❌ Error Handling
@@ -2104,16 +2193,16 @@ All errors follow this consistent format:
 
 ### Error Codes Reference
 
-| HTTP Status | Error Type | When It Occurs |
-|------------|------------|----------------|
-| `400` | Bad Request | Invalid input, validation failed, weak password |
-| `401` | Unauthorized | Invalid/expired token, wrong credentials |
-| `403` | Forbidden | Email not verified, account locked/suspended |
-| `404` | Not Found | User/resource doesn't exist |
-| `409` | Conflict | Email/username already exists, concurrent login |
-| `429` | Too Many Requests | Rate limit exceeded |
-| `500` | Internal Server Error | Unexpected server error |
-| `503` | Service Unavailable | Redis/DB connection failed |
+| HTTP Status | Error Type            | When It Occurs                                  |
+| ----------- | --------------------- | ----------------------------------------------- |
+| `400`       | Bad Request           | Invalid input, validation failed, weak password |
+| `401`       | Unauthorized          | Invalid/expired token, wrong credentials        |
+| `403`       | Forbidden             | Email not verified, account locked/suspended    |
+| `404`       | Not Found             | User/resource doesn't exist                     |
+| `409`       | Conflict              | Email/username already exists, concurrent login |
+| `429`       | Too Many Requests     | Rate limit exceeded                             |
+| `500`       | Internal Server Error | Unexpected server error                         |
+| `503`       | Service Unavailable   | Redis/DB connection failed                      |
 
 ### Common Error Scenarios
 
@@ -2239,23 +2328,23 @@ docker compose up -d --build
 
 ### Services Overview
 
-| Service | Port(s) | URL | Description |
-|---------|---------|-----|-------------|
-| `postgres_db` | 5433 | - | PostgreSQL 17 database |
-| `pg_admin` | 8080, 8443 | http://localhost:8080 | PgAdmin web interface |
+| Service       | Port(s)    | URL                   | Description                   |
+| ------------- | ---------- | --------------------- | ----------------------------- |
+| `postgres_db` | 5433       | -                     | PostgreSQL 17 database        |
+| `pg_admin`    | 8080, 8443 | http://localhost:8080 | PgAdmin web interface         |
 | `redis-stack` | 6379, 8001 | http://localhost:8001 | Redis Stack with RedisInsight |
-| `prometheus` | 9090 | http://localhost:9090 | Metrics collection |
-| `grafana` | 3000 | http://localhost:3000 | Visualization dashboards |
-| `loki` | 3100 | http://localhost:3100 | Log aggregation |
+| `prometheus`  | 9090       | http://localhost:9090 | Metrics collection            |
+| `grafana`     | 3000       | http://localhost:3000 | Visualization dashboards      |
+| `loki`        | 3100       | http://localhost:3100 | Log aggregation               |
 
 ### Service Access Credentials
 
-| Service | Username | Password |
-|---------|----------|----------|
+| Service    | Username                     | Password                         |
+| ---------- | ---------------------------- | -------------------------------- |
 | PostgreSQL | `admin` (or `POSTGRES_USER`) | `admin` (or `POSTGRES_PASSWORD`) |
-| PgAdmin | `admin@example.com` | `admin` |
-| Grafana | `admin` | `admin` |
-| Redis | `default` | (no password by default) |
+| PgAdmin    | `admin@example.com`          | `admin`                          |
+| Grafana    | `admin`                      | `admin`                          |
+| Redis      | `default`                    | (no password by default)         |
 
 ### Connecting to PostgreSQL via PgAdmin
 
@@ -2332,19 +2421,19 @@ flowchart LR
         A[NestJS App]
         W[Winston Logger]
     end
-    
+
     subgraph Metrics Pipeline
         P[(Prometheus)]
     end
-    
+
     subgraph Logs Pipeline
         L[(Loki)]
     end
-    
+
     subgraph Visualization
         G[Grafana Dashboard]
     end
-    
+
     A -->|metrics| P
     W -->|logs| L
     P --> G
@@ -2352,6 +2441,7 @@ flowchart LR
 ```
 
 **Data Flow:**
+
 - **Metrics:** NestJS exposes `/metrics` endpoint → Prometheus scrapes every 15s → Grafana visualizes
 - **Logs:** Winston sends structured logs → Loki stores with labels → Grafana queries with LogQL
 
@@ -2371,7 +2461,7 @@ export class YourService {
     this.logger.log('Operation started', 'YourService');
     this.logger.warn('Warning message', 'YourService');
     this.logger.error('Error occurred', 'stack trace', 'YourService');
-    
+
     // Structured logging with metadata
     this.logger.logUserAction(userId, 'ORDER_PLACED', {
       orderId: '123',
@@ -2392,6 +2482,7 @@ export class YourService {
 Access metrics at: http://localhost:5000/metrics
 
 **Available Metrics:**
+
 - `http_request_duration_seconds` - Request latency histogram
 - `http_requests_total` - Total request count by method/route/status
 - `http_request_errors_total` - Error count by type
@@ -2407,10 +2498,12 @@ Access metrics at: http://localhost:5000/metrics
 ### Loki Logging
 
 Winston automatically sends logs to Loki with labels:
+
 - `app: nestjs-app`
 - `environment: development|production`
 
 Query logs in Grafana with LogQL:
+
 ```logql
 {app="nestjs-app"} |= "error"
 ```
@@ -2464,13 +2557,13 @@ jobs:
 
 ### Required GitHub Secrets
 
-| Secret | Description |
-|--------|-------------|
-| `DOCKER_USERNAME` | Docker Hub username |
-| `DOCKER_PASSWORD` | Docker Hub access token |
-| `EC2_HOST` | EC2 public IP or domain |
-| `EC2_USER` | EC2 SSH username (e.g., `ec2-user`) |
-| `EC2_SSH_KEY` | Private SSH key for EC2 |
+| Secret            | Description                         |
+| ----------------- | ----------------------------------- |
+| `DOCKER_USERNAME` | Docker Hub username                 |
+| `DOCKER_PASSWORD` | Docker Hub access token             |
+| `EC2_HOST`        | EC2 public IP or domain             |
+| `EC2_USER`        | EC2 SSH username (e.g., `ec2-user`) |
+| `EC2_SSH_KEY`     | Private SSH key for EC2             |
 
 ---
 
@@ -2542,7 +2635,7 @@ describe('ProductService', () => {
       prisma.product.findUnique.mockResolvedValue(mockProduct);
 
       const result = await service.findOne('1');
-      
+
       expect(result).toEqual(mockProduct);
       expect(prisma.product.findUnique).toHaveBeenCalledWith({
         where: { id: '1' },
@@ -2638,6 +2731,7 @@ cd /home/ec2-user/my-app
 ### 2. Production Environment
 
 Create `.env` on server with production values:
+
 - Use strong, unique `JWT_SECRET`
 - Set `NODE_ENV=production`
 - Configure production database credentials
@@ -2670,6 +2764,7 @@ docker exec -it simple_blog_backend npx prisma migrate deploy
 **Error:** `Can't reach database server at localhost:5433`
 
 **Solutions:**
+
 ```bash
 # Check if PostgreSQL is running
 docker ps | grep postgres
@@ -2686,6 +2781,7 @@ docker compose restart postgres_db
 **Error:** `Redis connection to localhost:6379 failed`
 
 **Solutions:**
+
 ```bash
 # Check if Redis is running
 docker ps | grep redis
@@ -2703,6 +2799,7 @@ REDIS_PORT=6379
 **Error:** `Migration failed to apply`
 
 **Solutions:**
+
 ```bash
 # Reset database (WARNING: deletes all data)
 npx prisma migrate reset
@@ -2719,8 +2816,9 @@ npx prisma migrate status
 **Error:** Verification emails not received
 
 **Solutions:**
+
 1. Check Gmail App Password (not regular password)
-2. Verify EMAIL_* env variables are set
+2. Verify EMAIL\_\* env variables are set
 3. Check email job in Redis:
    ```bash
    # Open RedisInsight at http://localhost:8001
@@ -2734,17 +2832,18 @@ npx prisma migrate status
 
 **Causes & Solutions:**
 
-| Error | Cause | Solution |
-|-------|-------|----------|
-| Token expired | Access token > 15min old | Use refresh token to get new access token |
-| Invalid token | Secret mismatch | Ensure JWT_SECRET is same across restarts |
-| Token revoked | User logged out or password changed | Login again |
+| Error         | Cause                               | Solution                                  |
+| ------------- | ----------------------------------- | ----------------------------------------- |
+| Token expired | Access token > 15min old            | Use refresh token to get new access token |
+| Invalid token | Secret mismatch                     | Ensure JWT_SECRET is same across restarts |
+| Token revoked | User logged out or password changed | Login again                               |
 
 #### 6. Port Already in Use
 
 **Error:** `Port 5000 is already in use`
 
 **Solutions:**
+
 ```bash
 # Find process using port
 lsof -i :5000
@@ -2761,6 +2860,7 @@ PORT=5001
 **Error:** `@prisma/client did not initialize yet`
 
 **Solutions:**
+
 ```bash
 # Generate Prisma client
 npx prisma generate
@@ -2775,6 +2875,7 @@ npm install
 **Error:** Container keeps restarting
 
 **Solutions:**
+
 ```bash
 # Increase Docker memory limit
 # Docker Desktop > Settings > Resources > Memory: 4GB+
@@ -2796,6 +2897,7 @@ LOG_LEVEL=debug
 ```
 
 Check logs:
+
 ```bash
 # Application logs
 npm run start:dev
@@ -2810,9 +2912,9 @@ docker compose logs -f
 
 ### Health Check Endpoints
 
-| Endpoint | Purpose |
-|----------|---------|
-| `GET /` | App health check |
+| Endpoint       | Purpose            |
+| -------------- | ------------------ |
+| `GET /`        | App health check   |
 | `GET /metrics` | Prometheus metrics |
 
 ### Getting Help

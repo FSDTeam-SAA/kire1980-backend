@@ -11,6 +11,9 @@ interface AppConfig {
   email_user: string;
   email_pass: string;
   email_from: string;
+  twilio_account_sid: string;
+  twilio_auth_token: string;
+  twilio_phone_number: string;
   // Google OAuth
   google_client_id: string;
   google_client_secret: string;
@@ -34,6 +37,9 @@ const config: AppConfig = {
   email_user: process.env.EMAIL_USER || '',
   email_pass: process.env.EMAIL_PASS || '',
   email_from: process.env.EMAIL_FROM || process.env.EMAIL_USER || '',
+  twilio_account_sid: process.env.TWILIO_ACCOUNT_SID || '',
+  twilio_auth_token: process.env.TWILIO_AUTH_TOKEN || '',
+  twilio_phone_number: process.env.TWILIO_PHONE_NUMBER || '',
   // Google OAuth
   google_client_id: process.env.GOOGLE_CLIENT_ID || '',
   google_client_secret: process.env.GOOGLE_CLIENT_SECRET || '',

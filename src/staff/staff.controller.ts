@@ -95,7 +95,6 @@ export class StaffController {
   @Get('me/dashboard-statistics')
   @UseGuards(AuthGuard)
   getBusinessOwnerDashboardStatistics(@Request() req: AuthenticatedRequest) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
     return this.staffService.getBusinessOwnerDashboardStatistics(
       req.user.userId,
     );

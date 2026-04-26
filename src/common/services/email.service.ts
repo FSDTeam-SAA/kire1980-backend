@@ -175,4 +175,52 @@ export class EmailService {
       html,
     });
   }
+
+  async sendBookingCreatedCustomerEmail(
+    email: string,
+    customerName: string,
+    businessName: string,
+    bookingId: string,
+    firstServiceDateTime: string,
+    totalServices: number,
+  ): Promise<void> {
+    const html = this.getEmailTemplate('booking-created-customer.html', {
+      customerName,
+      businessName,
+      bookingId,
+      firstServiceDateTime,
+      totalServices: totalServices.toString(),
+      year: new Date().getFullYear().toString(),
+    });
+
+    await this.sendEmail({
+      to: email,
+      subject: `Booking Confirmed with ${businessName}`,
+      html,
+    });
+  }
+
+  async sendBookingCreatedBusinessEmail(
+    email: string,
+    businessName: string,
+    customerName: string,
+    bookingId: string,
+    firstServiceDateTime: string,
+    totalServices: number,
+  ): Promise<void> {
+    const html = this.getEmailTemplate('booking-created-business.html', {
+      businessName,
+      customerName,
+      bookingId,
+      firstServiceDateTime,
+      totalServices: totalServices.toString(),
+      year: new Date().getFullYear().toString(),
+    });
+
+    await this.sendEmail({
+      to: email,
+      subject: `New Booking Received (#${bookingId})`,
+      html,
+    });
+  }
 }

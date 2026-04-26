@@ -42,6 +42,9 @@ export class EmailProcessor extends WorkerHost {
         case 'admin_contact':
           await this.handleAdminContactEmail(job);
           break;
+        case 'booking_created':
+          await this.handleBookingCreatedEmail(job);
+          break;
         default:
           this.logger.warn(
             `Unknown email job type: ${String((job.data as { type?: string }).type || 'undefined')}`,
@@ -214,6 +217,54 @@ export class EmailProcessor extends WorkerHost {
         userEmail,
         error: error instanceof Error ? error.message : String(error),
       });
+      throw error;
+    }
+  }
+
+  private async handleBookingCreatedEmail(job: Job<EmailJob>): Promise<void> {
+    const data = job.data as Extract<EmailJob, { type: 'booking_created' }>;
+
+    try {
+      if (data.recipientType === 'customer') {
+        await this.emailService.sendBookingCreatedCustomerEmail(
+          data.recipientEmail,
+          data.recipientName,
+          data.businessName,
+          data.bookingId,
+          data.firstServiceDateTime,
+          data.totalServices,
+        );
+      } else {
+        await this.emailService.sendBookingCreatedBusinessEmail(
+          data.recipientEmail,
+          data.recipientName,
+          data.customerName,
+          data.bookingId,
+          data.firstServiceDateTime,
+          data.totalServices,
+        );
+      }
+
+      this.logger.info(
+        `Booking created email sent to ${data.recipientType}: ${data.recipientEmail}`,
+        {
+          context: 'EmailProcessor',
+          jobId: job.id,
+          recipientType: data.recipientType,
+          recipientEmail: data.recipientEmail,
+        },
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to send booking created email to ${data.recipientType}: ${data.recipientEmail}`,
+        {
+          context: 'EmailProcessor',
+          jobId: job.id,
+          recipientType: data.recipientType,
+          recipientEmail: data.recipientEmail,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      );
       throw error;
     }
   }

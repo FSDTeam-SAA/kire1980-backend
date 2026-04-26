@@ -32,11 +32,24 @@ export interface AdminContactEmailJob {
   message: string;
 }
 
+export interface BookingCreatedEmailJob {
+  type: 'booking_created';
+  recipientType: 'customer' | 'business';
+  recipientEmail: string;
+  recipientName: string;
+  customerName: string;
+  businessName: string;
+  bookingId: string;
+  firstServiceDateTime: string;
+  totalServices: number;
+}
+
 export type EmailJob =
   | VerificationEmailJob
   | WelcomeEmailJob
   | PasswordResetEmailJob
-  | AdminContactEmailJob;
+  | AdminContactEmailJob
+  | BookingCreatedEmailJob;
 
 @Injectable()
 export class EmailQueueService {
@@ -144,5 +157,68 @@ export class EmailQueueService {
         removeOnFail: 500,
       },
     );
+  }
+
+  async sendBookingCreatedNotificationEmails(payload: {
+    customerEmail: string;
+    customerName: string;
+    businessEmail: string;
+    businessName: string;
+    bookingId: string;
+    firstServiceDateTime: string;
+    totalServices: number;
+  }): Promise<void> {
+    const {
+      customerEmail,
+      customerName,
+      businessEmail,
+      businessName,
+      bookingId,
+      firstServiceDateTime,
+      totalServices,
+    } = payload;
+
+    const baseJobOptions = {
+      attempts: 3,
+      backoff: {
+        type: 'exponential' as const,
+        delay: 2000,
+      },
+      removeOnComplete: 100,
+      removeOnFail: 500,
+    };
+
+    await Promise.all([
+      this.emailQueue.add(
+        'send-booking-created-customer',
+        {
+          type: 'booking_created',
+          recipientType: 'customer',
+          recipientEmail: customerEmail,
+          recipientName: customerName,
+          customerName,
+          businessName,
+          bookingId,
+          firstServiceDateTime,
+          totalServices,
+        } as BookingCreatedEmailJob,
+        baseJobOptions,
+      ),
+      this.emailQueue.add(
+        'send-booking-created-business',
+        {
+          type: 'booking_created',
+          recipientType: 'business',
+          recipientEmail: businessEmail,
+          recipientName: businessName,
+          customerName,
+          businessName,
+          bookingId,
+          firstServiceDateTime,
+          totalServices,
+        } as BookingCreatedEmailJob,
+        baseJobOptions,
+      ),
+    ]);
   }
 }

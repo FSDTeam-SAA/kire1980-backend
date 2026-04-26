@@ -79,103 +79,107 @@ export class BusinessService {
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     endOfMonth.setHours(23, 59, 59, 999);
 
-    const [todaysBookingsAgg, newCustomersAgg, monthlyRevenueAgg, avgRatingAgg] =
-      await Promise.all([
-        // 1. Today's Bookings (Count of individual active service items today)
-        this.bookingModel.aggregate([
-          {
-            $match: {
-              businessId: businessObjectId,
-              isDeleted: false,
-              bookingStatus: {
-                $nin: [BookingStatus.CANCELLED, BookingStatus.NO_SHOW],
+    const [
+      todaysBookingsAgg,
+      newCustomersAgg,
+      monthlyRevenueAgg,
+      avgRatingAgg,
+    ] = await Promise.all([
+      // 1. Today's Bookings (Count of individual active service items today)
+      this.bookingModel.aggregate([
+        {
+          $match: {
+            businessId: businessObjectId,
+            isDeleted: false,
+            bookingStatus: {
+              $nin: [BookingStatus.CANCELLED, BookingStatus.NO_SHOW],
+            },
+            'services.dateAndTime': { $gte: startOfToday, $lte: endOfToday },
+          },
+        },
+        { $unwind: '$services' },
+        {
+          $match: {
+            'services.dateAndTime': { $gte: startOfToday, $lte: endOfToday },
+          },
+        },
+        { $count: 'total' },
+      ]),
+
+      // 2. New Statistics/Customers (Users whose first booking was this month)
+      this.bookingModel.aggregate([
+        {
+          $match: {
+            businessId: businessObjectId,
+            isDeleted: false,
+          },
+        },
+        {
+          $group: {
+            _id: '$userId',
+            firstBookingDate: { $min: '$createdAt' },
+          },
+        },
+        {
+          $match: {
+            firstBookingDate: { $gte: startOfMonth, $lte: endOfMonth },
+          },
+        },
+        { $count: 'total' },
+      ]),
+
+      // 3. Monthly Revenue (Sum of COMPLETED services this month)
+      this.bookingModel.aggregate([
+        {
+          $match: {
+            businessId: businessObjectId,
+            isDeleted: false,
+            bookingStatus: BookingStatus.COMPLETED,
+            $or: [
+              { completedAt: { $gte: startOfMonth, $lte: endOfMonth } },
+              {
+                $and: [
+                  { completedAt: { $eq: null } },
+                  { updatedAt: { $gte: startOfMonth, $lte: endOfMonth } },
+                ],
               },
-              'services.dateAndTime': { $gte: startOfToday, $lte: endOfToday },
-            },
+            ],
           },
-          { $unwind: '$services' },
-          {
-            $match: {
-              'services.dateAndTime': { $gte: startOfToday, $lte: endOfToday },
-            },
+        },
+        { $unwind: '$services' },
+        {
+          $lookup: {
+            from: 'services',
+            localField: 'services.serviceId',
+            foreignField: '_id',
+            as: 'serviceDetail',
           },
-          { $count: 'total' },
-        ]),
+        },
+        { $unwind: '$serviceDetail' },
+        {
+          $group: {
+            _id: null,
+            totalRevenue: { $sum: '$serviceDetail.price' },
+          },
+        },
+      ]),
 
-        // 2. New Statistics/Customers (Users whose first booking was this month)
-        this.bookingModel.aggregate([
-          {
-            $match: {
-              businessId: businessObjectId,
-              isDeleted: false,
-            },
+      // 4. Average Rating
+      this.reviewModel.aggregate([
+        {
+          $match: {
+            businessId: businessObjectId,
+            isDeleted: false,
           },
-          {
-            $group: {
-              _id: '$userId',
-              firstBookingDate: { $min: '$createdAt' },
-            },
+        },
+        {
+          $group: {
+            _id: null,
+            avgRating: { $avg: '$rating' },
           },
-          {
-            $match: {
-              firstBookingDate: { $gte: startOfMonth, $lte: endOfMonth },
-            },
-          },
-          { $count: 'total' },
-        ]),
-
-        // 3. Monthly Revenue (Sum of COMPLETED services this month)
-        this.bookingModel.aggregate([
-          {
-            $match: {
-              businessId: businessObjectId,
-              isDeleted: false,
-              bookingStatus: BookingStatus.COMPLETED,
-              $or: [
-                { completedAt: { $gte: startOfMonth, $lte: endOfMonth } },
-                {
-                  $and: [
-                    { completedAt: { $eq: null } },
-                    { updatedAt: { $gte: startOfMonth, $lte: endOfMonth } },
-                  ],
-                },
-              ],
-            },
-          },
-          { $unwind: '$services' },
-          {
-            $lookup: {
-              from: 'services',
-              localField: 'services.serviceId',
-              foreignField: '_id',
-              as: 'serviceDetail',
-            },
-          },
-          { $unwind: '$serviceDetail' },
-          {
-            $group: {
-              _id: null,
-              totalRevenue: { $sum: '$serviceDetail.price' },
-            },
-          },
-        ]),
-
-        // 4. Average Rating
-        this.reviewModel.aggregate([
-          {
-            $match: {
-              businessId: businessObjectId,
-              isDeleted: false,
-            },
-          },
-          {
-            $group: {
-              _id: null,
-              avgRating: { $avg: '$rating' },
-            },
-          },
-        ]),
-      ]);
+        },
+      ]),
+    ]);
 
     const todaysBookings = todaysBookingsAgg[0]?.total ?? 0;
     const newCustomer = newCustomersAgg[0]?.total ?? 0;
@@ -504,7 +508,11 @@ export class BusinessService {
           totalBookings: { $addToSet: '$_id' },
           completedServices: {
             $sum: {
-              $cond: [{ $eq: ['$bookingStatus', BookingStatus.COMPLETED] }, 1, 0],
+              $cond: [
+                { $eq: ['$bookingStatus', BookingStatus.COMPLETED] },
+                1,
+                0,
+              ],
             },
           },
           revenueGenerated: {
@@ -560,63 +568,64 @@ export class BusinessService {
       BookingStatus.IN_PROGRESS,
     ];
 
-    const [totalStaff, totalBookedTodayAgg, activeBookingsAgg] = await Promise.all([
-      // 1. Total Staff
-      this.staffModel.countDocuments({
-        businessId: businessObjectId,
-        isDeleted: false,
-      }),
-      // 2. Total Booked Today (Number of service items)
-      this.bookingModel.aggregate([
-        {
-          $match: {
-            businessId: businessObjectId,
-            isDeleted: false,
-            'services.dateAndTime': { $gte: startOfToday, $lte: endOfToday },
+    const [totalStaff, totalBookedTodayAgg, activeBookingsAgg] =
+      await Promise.all([
+        // 1. Total Staff
+        this.staffModel.countDocuments({
+          businessId: businessObjectId,
+          isDeleted: false,
+        }),
+        // 2. Total Booked Today (Number of service items)
+        this.bookingModel.aggregate([
+          {
+            $match: {
+              businessId: businessObjectId,
+              isDeleted: false,
+              'services.dateAndTime': { $gte: startOfToday, $lte: endOfToday },
+            },
           },
-        },
-        { $unwind: '$services' },
-        {
-          $match: {
-            'services.dateAndTime': { $gte: startOfToday, $lte: endOfToday },
+          { $unwind: '$services' },
+          {
+            $match: {
+              'services.dateAndTime': { $gte: startOfToday, $lte: endOfToday },
+            },
           },
-        },
-        { $count: 'total' },
-      ]),
-      // 3. Data for Currently On Duty
-      this.bookingModel.aggregate([
-        {
-          $match: {
-            businessId: businessObjectId,
-            isDeleted: false,
-            bookingStatus: { $in: activeBookingStatuses },
-            'services.dateAndTime': { $lte: now },
+          { $count: 'total' },
+        ]),
+        // 3. Data for Currently On Duty
+        this.bookingModel.aggregate([
+          {
+            $match: {
+              businessId: businessObjectId,
+              isDeleted: false,
+              bookingStatus: { $in: activeBookingStatuses },
+              'services.dateAndTime': { $lte: now },
+            },
           },
-        },
-        { $unwind: '$services' },
-        {
-          $match: {
-            'services.dateAndTime': { $lte: now },
+          { $unwind: '$services' },
+          {
+            $match: {
+              'services.dateAndTime': { $lte: now },
+            },
           },
-        },
-        {
-          $lookup: {
-            from: 'services',
-            localField: 'services.serviceId',
-            foreignField: '_id',
-            as: 'serviceDetail',
+          {
+            $lookup: {
+              from: 'services',
+              localField: 'services.serviceId',
+              foreignField: '_id',
+              as: 'serviceDetail',
+            },
           },
-        },
-        { $unwind: '$serviceDetail' },
-        {
-          $project: {
-            selectedProvider: '$services.selectedProvider',
-            startTime: '$services.dateAndTime',
-            duration: '$serviceDetail.serviceDuration',
+          { $unwind: '$serviceDetail' },
+          {
+            $project: {
+              selectedProvider: '$services.selectedProvider',
+              startTime: '$services.dateAndTime',
+              duration: '$serviceDetail.serviceDuration',
+            },
           },
-        },
-      ]),
-    ]);
+        ]),
+      ]);
 
     const totalBookedToday = totalBookedTodayAgg[0]?.total || 0;
 
@@ -655,14 +664,27 @@ export class BusinessService {
     const [totalServices, active, topCategoryData, totalBookings] =
       await Promise.all([
         this.serviceModel.countDocuments({
-          $or: [{ businessId: businessObjectId }, { businessOwnerId: ownerObjectId }],
+          $or: [
+            { businessId: businessObjectId },
+            { businessOwnerId: ownerObjectId },
+          ],
         }),
         this.serviceModel.countDocuments({
-          $or: [{ businessId: businessObjectId }, { businessOwnerId: ownerObjectId }],
+          $or: [
+            { businessId: businessObjectId },
+            { businessOwnerId: ownerObjectId },
+          ],
           isActive: true,
         }),
         this.serviceModel.aggregate([
-          { $match: { $or: [{ businessId: businessObjectId }, { businessOwnerId: ownerObjectId }] } },
+          {
+            $match: {
+              $or: [
+                { businessId: businessObjectId },
+                { businessOwnerId: ownerObjectId },
+              ],
+            },
+          },
           { $group: { _id: '$category', count: { $sum: 1 } } },
           { $sort: { count: -1 } },
           { $limit: 1 },
@@ -705,66 +727,67 @@ export class BusinessService {
     const endOfToday = new Date(now);
     endOfToday.setHours(23, 59, 59, 999);
 
-    const [todayBookingsAgg, cancelledToday, completedToday, todaysRevenueAgg] = await Promise.all([
-      // 1. Today Bookings (Actual service items scheduled for today)
-      this.bookingModel.aggregate([
-        {
-          $match: {
-            businessId: businessObjectId,
-            isDeleted: false,
-            'services.dateAndTime': { $gte: startOfToday, $lte: endOfToday },
+    const [todayBookingsAgg, cancelledToday, completedToday, todaysRevenueAgg] =
+      await Promise.all([
+        // 1. Today Bookings (Actual service items scheduled for today)
+        this.bookingModel.aggregate([
+          {
+            $match: {
+              businessId: businessObjectId,
+              isDeleted: false,
+              'services.dateAndTime': { $gte: startOfToday, $lte: endOfToday },
+            },
           },
-        },
-        { $unwind: '$services' },
-        {
-          $match: {
-            'services.dateAndTime': { $gte: startOfToday, $lte: endOfToday },
+          { $unwind: '$services' },
+          {
+            $match: {
+              'services.dateAndTime': { $gte: startOfToday, $lte: endOfToday },
+            },
           },
-        },
-        { $count: 'total' },
-      ]),
-      // 2. Cancelled Today
-      this.bookingModel.countDocuments({
-        businessId: businessObjectId,
-        isDeleted: false,
-        bookingStatus: BookingStatus.CANCELLED,
-        cancelledAt: { $gte: startOfToday, $lte: endOfToday },
-      }),
-      // 3. Completed Today
-      this.bookingModel.countDocuments({
-        businessId: businessObjectId,
-        isDeleted: false,
-        bookingStatus: BookingStatus.COMPLETED,
-        completedAt: { $gte: startOfToday, $lte: endOfToday },
-      }),
-      // 4. Today's Revenue (Sum of COMPLETED services today)
-      this.bookingModel.aggregate([
-        {
-          $match: {
-            businessId: businessObjectId,
-            isDeleted: false,
-            bookingStatus: BookingStatus.COMPLETED,
-            completedAt: { $gte: startOfToday, $lte: endOfToday },
+          { $count: 'total' },
+        ]),
+        // 2. Cancelled Today
+        this.bookingModel.countDocuments({
+          businessId: businessObjectId,
+          isDeleted: false,
+          bookingStatus: BookingStatus.CANCELLED,
+          cancelledAt: { $gte: startOfToday, $lte: endOfToday },
+        }),
+        // 3. Completed Today
+        this.bookingModel.countDocuments({
+          businessId: businessObjectId,
+          isDeleted: false,
+          bookingStatus: BookingStatus.COMPLETED,
+          completedAt: { $gte: startOfToday, $lte: endOfToday },
+        }),
+        // 4. Today's Revenue (Sum of COMPLETED services today)
+        this.bookingModel.aggregate([
+          {
+            $match: {
+              businessId: businessObjectId,
+              isDeleted: false,
+              bookingStatus: BookingStatus.COMPLETED,
+              completedAt: { $gte: startOfToday, $lte: endOfToday },
+            },
           },
-        },
-        { $unwind: '$services' },
-        {
-          $lookup: {
-            from: 'services',
-            localField: 'services.serviceId',
-            foreignField: '_id',
-            as: 'serviceDetail',
+          { $unwind: '$services' },
+          {
+            $lookup: {
+              from: 'services',
+              localField: 'services.serviceId',
+              foreignField: '_id',
+              as: 'serviceDetail',
+            },
           },
-        },
-        { $unwind: '$serviceDetail' },
-        {
-          $group: {
-            _id: null,
-            totalRevenue: { $sum: '$serviceDetail.price' },
+          { $unwind: '$serviceDetail' },
+          {
+            $group: {
+              _id: null,
+              totalRevenue: { $sum: '$serviceDetail.price' },
+            },
           },
-        },
-      ]),
-    ]);
+        ]),
+      ]);
 
     return {
       todayBookings: todayBookingsAgg[0]?.total || 0,
@@ -800,7 +823,7 @@ export class BusinessService {
 
     const businessId = business._id.toString();
     const cacheKey = `dashboard:revenue-chart:${businessId}:${viewType}`;
-    
+
     // Step 4: Check Cache
     const cachedData = await this.redis.get(cacheKey);
     if (cachedData) {
@@ -810,7 +833,7 @@ export class BusinessService {
     const businessObjectId = new Types.ObjectId(businessId);
     const now = new Date();
     let startDate: Date;
-    
+
     if (viewType === 'weekly') {
       startDate = new Date(now);
       startDate.setDate(now.getDate() - 6);
@@ -853,8 +876,18 @@ export class BusinessService {
         $group: {
           _id:
             viewType === 'yearly'
-              ? { $dateToString: { format: '%Y-%m', date: '$services.dateAndTime' } }
-              : { $dateToString: { format: '%Y-%m-%d', date: '$services.dateAndTime' } },
+              ? {
+                  $dateToString: {
+                    format: '%Y-%m',
+                    date: '$services.dateAndTime',
+                  },
+                }
+              : {
+                  $dateToString: {
+                    format: '%Y-%m-%d',
+                    date: '$services.dateAndTime',
+                  },
+                },
           totalRevenue: { $sum: '$serviceInfo.price' },
         },
       },
@@ -867,7 +900,9 @@ export class BusinessService {
     const commissionData: number[] = [];
     const payoutData: number[] = [];
 
-    const dataMap = new Map(aggResult.map(item => [item._id, item.totalRevenue]));
+    const dataMap = new Map(
+      aggResult.map((item) => [item._id, item.totalRevenue]),
+    );
     const commissionRate = 0.1; // 10% Platform Commission
 
     if (viewType === 'weekly' || viewType === 'monthly') {
@@ -876,11 +911,11 @@ export class BusinessService {
         const d = new Date(startDate);
         d.setDate(startDate.getDate() + i);
         const dateStr = d.toISOString().split('T')[0];
-        const dayLabel = 
-          viewType === 'weekly' 
+        const dayLabel =
+          viewType === 'weekly'
             ? d.toLocaleDateString('en-US', { weekday: 'short' })
             : d.toLocaleDateString('en-US', { day: '2-digit', month: 'short' });
-        
+
         const rev = dataMap.get(dateStr) || 0;
         labels.push(dayLabel);
         revenueData.push(Number(rev.toFixed(2)));
@@ -889,10 +924,14 @@ export class BusinessService {
       }
     } else {
       for (let i = 0; i < 12; i++) {
-        const d = new Date(startDate.getFullYear(), startDate.getMonth() + i, 1);
+        const d = new Date(
+          startDate.getFullYear(),
+          startDate.getMonth() + i,
+          1,
+        );
         const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
         const monthLabel = d.toLocaleDateString('en-US', { month: 'short' });
-        
+
         const rev = dataMap.get(dateStr) || 0;
         labels.push(monthLabel);
         revenueData.push(Number(rev.toFixed(2)));

@@ -5,7 +5,13 @@ import {
 } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Connection, Model, Types } from 'mongoose';
-import { AuthUser, Booking, BusinessInfo, Service, StaffMember } from '../database/schemas';
+import {
+  AuthUser,
+  Booking,
+  BusinessInfo,
+  Service,
+  StaffMember,
+} from '../database/schemas';
 import { BookingStatus } from '../database/schemas/booking.schema';
 import { CustomLoggerService } from '../common/services/custom-logger.service';
 

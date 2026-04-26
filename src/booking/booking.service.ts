@@ -19,6 +19,8 @@ import { CreateBookingDto } from './dto/create-booking.dto';
 import { UpdateBookingDto } from './dto/update-booking.dto';
 import { CustomLoggerService } from '../common/services/custom-logger.service';
 import { StaffService } from '../staff/staff.service';
+import { EmailQueueService } from '../common/queues/email/email.queue';
+import { SmsQueueService } from '../common/queues/sms/sms.queue';
 
 @Injectable()
 export class BookingService {
@@ -35,7 +37,9 @@ export class BookingService {
     private readonly authUserModel: Model<AuthUser>,
     private readonly customLogger: CustomLoggerService,
     private readonly staffService: StaffService,
-  ) { }
+    private readonly emailQueueService: EmailQueueService,
+    private readonly smsQueueService: SmsQueueService,
+  ) {}
 
   async create(userId: string, createBookingDto: CreateBookingDto) {
     // Verify user exists
@@ -169,6 +173,62 @@ export class BookingService {
       `Booking ${booking._id.toString()} created by user ${userId}`,
       BookingService.name,
     );
+
+    const bookingId = booking._id.toString();
+    const customerName = user.fullName;
+    const businessName = business.businessName;
+    const firstServiceDateTime =
+      createBookingDto.services[0]?.dateAndTime.toISOString() ||
+      new Date().toISOString();
+
+    try {
+      await this.emailQueueService.sendBookingCreatedNotificationEmails({
+        customerEmail: user.email,
+        customerName,
+        businessEmail: business.businessEmail,
+        businessName,
+        bookingId,
+        firstServiceDateTime,
+        totalServices: createBookingDto.services.length,
+      });
+    } catch (error) {
+      this.customLogger.error(
+        `Failed to queue booking created emails for booking ${bookingId}`,
+        error instanceof Error ? error.stack : undefined,
+        BookingService.name,
+      );
+    }
+
+    if (!user.phoneNumber) {
+      this.customLogger.warn(
+        `Customer phone number missing for booking ${bookingId}; customer SMS skipped`,
+        BookingService.name,
+      );
+    }
+
+    if (!business.phoneNumber) {
+      this.customLogger.warn(
+        `Business phone number missing for booking ${bookingId}; business SMS skipped`,
+        BookingService.name,
+      );
+    }
+
+    try {
+      await this.smsQueueService.sendBookingCreatedNotificationSms({
+        customerPhoneNumber: user.phoneNumber,
+        customerName,
+        businessPhoneNumber: business.phoneNumber,
+        businessName,
+        bookingId,
+        firstServiceDateTime,
+      });
+    } catch (error) {
+      this.customLogger.error(
+        `Failed to queue booking created SMS for booking ${bookingId}`,
+        error instanceof Error ? error.stack : undefined,
+        BookingService.name,
+      );
+    }
 
     return booking;
   }
