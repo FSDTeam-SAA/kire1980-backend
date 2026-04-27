@@ -16,6 +16,11 @@ import {
 import type { Request } from 'express';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+} from '@nestjs/swagger';
 import { BusinessService } from './business.service';
 import { CreateBusinessDto } from './dto/create-business.dto';
 import { BusinessQueryDto } from './dto/business-query.dto';
@@ -32,11 +37,14 @@ interface AuthenticatedRequest extends Request {
   };
 }
 
+@ApiTags('business')
 @Controller('businesses')
 export class BusinessController {
   constructor(private readonly businessService: BusinessService) {}
 
   // 1) Create business and store businessId into AuthUser.businessId
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Create a new business' })
   @UseGuards(AuthGuard)
   @Post()
   @UseInterceptors(
@@ -61,6 +69,7 @@ export class BusinessController {
   }
 
   // 2) Get all businesses
+  @ApiOperation({ summary: 'Get all businesses with pagination and filters' })
   @UseGuards(OptionalAuthGuard)
   @Get()
   @ApiPaginatedResponseDecorator(BusinessInfo)
@@ -72,6 +81,8 @@ export class BusinessController {
   }
 
   // 3) Get single business for current user from access token
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get current user business' })
   @UseGuards(AuthGuard)
   @Get('me')
   getMyBusiness(@Req() req: AuthenticatedRequest) {
@@ -79,6 +90,8 @@ export class BusinessController {
   }
 
   // 3.1) Business owner dashboard statistics
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get business owner dashboard statistics' })
   @UseGuards(AuthGuard)
   @Get('me/statistics')
   getMyBusinessStatistics(@Req() req: AuthenticatedRequest) {
@@ -89,12 +102,15 @@ export class BusinessController {
   }
 
   // 4) Get a single business by ID with populated data (public)
+  @ApiOperation({ summary: 'Get business by ID' })
   @Get(':id')
   getBusinessById(@Param('id') id: string) {
     return this.businessService.getBusinessById(id);
   }
 
   // 5) Toggle business status (admin only)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Toggle business active status (Admin only)' })
   @UseGuards(AuthGuard)
   @Patch(':id/toggle-status')
   toggleBusinessStatus(
@@ -105,6 +121,8 @@ export class BusinessController {
   }
 
   // 6) Get individual staff statistics for business owner dashboard
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get individual staff statistics' })
   @UseGuards(AuthGuard)
   @Get('dashboard/staff-individual-stats/:id')
   getStaffIndividualStats(
@@ -124,6 +142,8 @@ export class BusinessController {
   }
 
   // 7) Get staff management statistics for business owner dashboard
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get staff management count' })
   @UseGuards(AuthGuard)
   @Get('dashboard/staff-management-count')
   getStaffManagementCount(@Req() req: AuthenticatedRequest) {
@@ -137,6 +157,8 @@ export class BusinessController {
   }
 
   // 8) Get service management statistics for business owner dashboard
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get service management count' })
   @UseGuards(AuthGuard)
   @Get('dashboard/service-management-count')
   getServiceManagementCount(@Req() req: AuthenticatedRequest) {
@@ -150,6 +172,8 @@ export class BusinessController {
   }
 
   // 8.1) Get booking management count for business owner dashboard
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get booking management count' })
   @UseGuards(AuthGuard)
   @Get('dashboard/booking-management-count')
   getBookingManagementCount(@Req() req: AuthenticatedRequest) {
@@ -163,6 +187,8 @@ export class BusinessController {
   }
 
   // 9) Get revenue chart data for business owner dashboard
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get revenue chart data' })
   @UseGuards(AuthGuard)
   @Get('dashboard/revenue-chart')
   getRevenueChartData(
@@ -179,6 +205,8 @@ export class BusinessController {
   }
 
   // 10) Get upcoming appointments for business owner dashboard
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get upcoming appointments' })
   @UseGuards(AuthGuard)
   @Get('dashboard/upcoming-appointments')
   getUpcomingAppointments(@Req() req: AuthenticatedRequest) {

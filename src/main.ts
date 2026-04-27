@@ -36,9 +36,21 @@ async function bootstrap() {
           contentSecurityPolicy: {
             directives: {
               defaultSrc: ["'self'"],
-              styleSrc: ["'self'", "'unsafe-inline'"],
+              styleSrc: [
+                "'self'",
+                "'unsafe-inline'",
+                'cdn.jsdelivr.net',
+                'fonts.googleapis.com',
+              ],
               imgSrc: ["'self'", 'data:', 'https:'],
-              scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Required for Swagger UI
+              scriptSrc: [
+                "'self'",
+                "'unsafe-inline'",
+                "'unsafe-eval'",
+                'cdn.jsdelivr.net',
+              ], // Required for Swagger UI and Scalar
+              fontSrc: ["'self'", 'fonts.gstatic.com', 'cdn.jsdelivr.net'],
+              connectSrc: ["'self'", 'https:'],
             },
           },
           frameguard: { action: 'deny' as const },

@@ -16,6 +16,12 @@ import type { Request as ExpressRequest } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { Throttle } from '@nestjs/throttler';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+} from '@nestjs/swagger';
 import { StaffService } from './staff.service';
 import { CreateStaffMemberDto } from './dto/create-staff-member.dto';
 import { UpdateStaffMemberDto } from './dto/update-staff-member.dto';
@@ -31,12 +37,15 @@ interface AuthenticatedRequest extends ExpressRequest {
   };
 }
 
+@ApiTags('staff')
 @Controller('staff')
 @Throttle({ default: THROTTLER_CONFIG.RELAXED })
 export class StaffController {
   constructor(private readonly staffService: StaffService) {}
 
   @Post()
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Create a new staff member' })
   @UseGuards(AuthGuard)
   @UseInterceptors(
     FileInterceptor('avatar', {
@@ -93,6 +102,8 @@ export class StaffController {
   }
 
   @Get('me/dashboard-statistics')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get dashboard statistics for the logged-in business owner' })
   @UseGuards(AuthGuard)
   getBusinessOwnerDashboardStatistics(@Request() req: AuthenticatedRequest) {
     return this.staffService.getBusinessOwnerDashboardStatistics(
@@ -106,6 +117,8 @@ export class StaffController {
   }
 
   @Patch(':id')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Update a staff member' })
   @UseGuards(AuthGuard)
   @UseInterceptors(
     FileInterceptor('avatar', {
@@ -134,6 +147,8 @@ export class StaffController {
   }
 
   @Patch(':id/toggle-status')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Toggle active status of a staff member' })
   @UseGuards(AuthGuard)
   toggleActiveStatus(
     @Param('id') id: string,
@@ -143,12 +158,15 @@ export class StaffController {
   }
 
   @Delete(':id')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Delete a staff member' })
   @UseGuards(AuthGuard)
   remove(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
     return this.staffService.remove(id, req.user.userId);
   }
 }
 
+@ApiTags('service')
 @Controller('services')
 @Throttle({ default: THROTTLER_CONFIG.RELAXED })
 export class ServiceStaffAvailabilityController {

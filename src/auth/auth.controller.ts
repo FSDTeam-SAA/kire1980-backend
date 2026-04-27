@@ -9,7 +9,11 @@ import {
   Logger,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+} from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { GoogleOAuthService } from './services/google-oauth.service';
@@ -428,6 +432,8 @@ export class AuthController {
    * Requires current password and access token
    */
   @UseGuards(AuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Change password for authenticated user' })
   @Throttle({ default: THROTTLER_CONFIG.AUTH })
   @Post('change-password')
   async changePassword(

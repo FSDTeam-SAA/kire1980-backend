@@ -11,6 +11,11 @@ import {
   Req,
 } from '@nestjs/common';
 import type { Request } from 'express';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+} from '@nestjs/swagger';
 import { BookingService } from './booking.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { UpdateBookingDto } from './dto/update-booking.dto';
@@ -25,11 +30,14 @@ interface AuthenticatedRequest extends Request {
   };
 }
 
+@ApiTags('booking')
+@ApiBearerAuth('JWT-auth')
 @Controller('bookings')
 export class BookingController {
   constructor(private readonly bookingService: BookingService) {}
 
   @Post()
+  @ApiOperation({ summary: 'Create a new booking' })
   @UseGuards(AuthGuard)
   create(
     @Req() req: AuthenticatedRequest,
@@ -39,6 +47,7 @@ export class BookingController {
   }
 
   @Get()
+  @ApiOperation({ summary: 'Get all bookings with filters' })
   @UseGuards(AuthGuard)
   findAll(
     @Query('page') page?: string,
@@ -63,6 +72,7 @@ export class BookingController {
   }
 
   @Get('user/:userId')
+  @ApiOperation({ summary: 'Get all bookings for a specific user' })
   @UseGuards(AuthGuard)
   findUserBookings(
     @Param('userId') userId: string,
@@ -77,6 +87,7 @@ export class BookingController {
   }
 
   @Get('business/:businessId')
+  @ApiOperation({ summary: 'Get all bookings for a specific business' })
   @UseGuards(AuthGuard)
   findBusinessBookings(
     @Param('businessId') businessId: string,
@@ -91,12 +102,14 @@ export class BookingController {
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Get booking by ID' })
   @UseGuards(AuthGuard)
   findOne(@Param('id') id: string) {
     return this.bookingService.findOne(id);
   }
 
   @Patch(':id')
+  @ApiOperation({ summary: 'Update a booking' })
   @UseGuards(AuthGuard)
   update(
     @Param('id') id: string,
@@ -107,6 +120,7 @@ export class BookingController {
   }
 
   @Patch(':id/cancel')
+  @ApiOperation({ summary: 'Cancel a booking' })
   @UseGuards(AuthGuard)
   cancel(
     @Param('id') id: string,
@@ -121,12 +135,14 @@ export class BookingController {
   }
 
   @Patch(':id/complete')
+  @ApiOperation({ summary: 'Mark a booking as completed' })
   @UseGuards(AuthGuard)
   complete(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
     return this.bookingService.completeBooking(id, req.user.userId);
   }
 
   @Delete(':id')
+  @ApiOperation({ summary: 'Delete a booking' })
   @UseGuards(AuthGuard)
   remove(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
     return this.bookingService.remove(id, req.user.userId);

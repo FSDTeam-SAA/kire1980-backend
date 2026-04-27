@@ -11,7 +11,13 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBody,
+  ApiConsumes,
+  ApiOperation,
+  ApiTags,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { UserService } from './user.service';
@@ -25,6 +31,7 @@ import { AuthGuard } from '../common/guards/auth.guard';
 import { Types } from 'mongoose';
 
 @ApiTags('users')
+@ApiBearerAuth('JWT-auth')
 @Controller('user')
 @UseGuards(AuthGuard)
 export class UserController {

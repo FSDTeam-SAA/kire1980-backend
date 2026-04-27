@@ -1,19 +1,21 @@
 import { INestApplication } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { apiReference } from '@scalar/nestjs-api-reference';
 
 export function setupSwagger(app: INestApplication): void {
   const config = new DocumentBuilder()
-    .setTitle('NestJS API')
+    .setTitle('Bookersi API Documentation')
     .setDescription(
-      'Production-ready NestJS API with Prisma, PostgreSQL, Authentication, Logging, Monitoring, and more.',
+      'Official API documentation for Bookersi - The ultimate booking and business management platform. ' +
+        'Explore our industry-level API endpoints with a Postman-like interactive experience.',
     )
     .setVersion('1.0.0')
     .setContact(
-      'API Support',
-      'https://github.com/the-pujon/nestjs-prisma-postgres-starter',
-      '',
+      'Bookersi Support',
+      'https://bookersi.com',
+      'support@bookersi.com',
     )
-    .setLicense('MIT', 'https://opensource.org/licenses/MIT')
+    .setLicense('Bookersi Proprietary', 'https://bookersi.com/terms')
     // Add JWT Bearer authentication globally
     .addBearerAuth(
       {
@@ -21,7 +23,7 @@ export function setupSwagger(app: INestApplication): void {
         scheme: 'bearer',
         bearerFormat: 'JWT',
         name: 'JWT',
-        description: 'Enter JWT access token',
+        description: 'Enter your JWT access token to authenticate requests.',
         in: 'header',
       },
       'JWT-auth', // This is the security name
@@ -29,32 +31,50 @@ export function setupSwagger(app: INestApplication): void {
     // Add common tags for organization
     .addTag('auth', 'Authentication and authorization endpoints')
     .addTag('users', 'User management endpoints')
+    .addTag('business', 'Business listing and management')
+    .addTag('booking', 'Booking and reservation management')
+    .addTag('service', 'Service management')
+    .addTag('staff', 'Staff and availability management')
+    .addTag('review', 'Business reviews and ratings')
+    .addTag('wishlist', 'User wishlists')
+    .addTag('payment', 'Payment processing')
+    .addTag('contact', 'Contact and support')
+    .addTag('admin', 'Administrative operations')
     .addTag('health', 'Health check endpoints')
     .addTag('metrics', 'Metrics and monitoring endpoints')
     .build();
 
-  const document = SwaggerModule.createDocument(app, config, {
-    // Global API response decorator
-    extraModels: [],
-  });
+  const document = SwaggerModule.createDocument(app, config);
 
-  // Customize Swagger UI
-  SwaggerModule.setup('docs', app, document, {
-    customSiteTitle: 'NestJS API Documentation',
+  // Integrate Scalar API Reference for a Postman-like experience
+  app.use(
+    '/docs',
+    apiReference({
+      theme: 'deepSpace',
+      layout: 'modern',
+      defaultHttpClient: {
+        targetKey: 'js',
+        clientKey: 'fetch',
+      },
+      content: document,
+      customCss: `
+        .scalar-app {
+          --scalar-brand: #7c3aed;
+          --scalar-button-1: #7c3aed;
+        }
+      `,
+    }),
+  );
+
+  // Optional: Keep standard Swagger UI at /swagger-ui for fallback
+  SwaggerModule.setup('swagger-ui', app, document, {
+    customSiteTitle: 'Bookersi API - Swagger UI',
     customfavIcon: 'https://nestjs.com/img/logo-small.svg',
-    customCss: `
-      .swagger-ui .topbar { display: none }
-      .swagger-ui .info { margin: 20px 0 }
-      .swagger-ui .scheme-container { margin: 20px 0 }
-    `,
     swaggerOptions: {
-      persistAuthorization: true, // Persist authorization data on page refresh
-      docExpansion: 'none', // Collapse all sections by default
-      filter: true, // Enable search filter
-      showRequestDuration: true, // Show request duration
-      tryItOutEnabled: true, // Enable "Try it out" by default
-      tagsSorter: 'alpha', // Sort tags alphabetically
-      operationsSorter: 'alpha', // Sort operations alphabetically
+      persistAuthorization: true,
+      docExpansion: 'none',
+      filter: true,
+      showRequestDuration: true,
     },
   });
 }
