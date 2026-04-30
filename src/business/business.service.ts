@@ -19,6 +19,7 @@ import {
   ReviewRating,
 } from '../database/schemas';
 import { CreateBusinessDto } from './dto/create-business.dto';
+import { UpdateBusinessDto } from './dto/update-business.dto';
 import { CustomLoggerService } from '../common/services/custom-logger.service';
 import { CloudinaryService } from '../common/services/cloudinary.service';
 import { createPaginatedResponse } from '../common/decorators/api-pagination.decorator';
@@ -47,7 +48,7 @@ export class BusinessService {
     private readonly connection: Connection,
     @Inject(REDIS_CLIENT)
     private readonly redis: RedisType,
-  ) {}
+  ) { }
 
   async getBusinessOwnerStatistics(ownerId: string, role: string) {
     if (role !== 'businessowner' && role !== 'admin') {
@@ -195,6 +196,7 @@ export class BusinessService {
       averageRating,
     };
   }
+
 
   async createBusiness(
     ownerId: string,
@@ -427,6 +429,103 @@ export class BusinessService {
     return createPaginatedResponse(items, total, page, limit);
   }
 
+  async updateBusiness(
+    ownerId: string,
+    updateDto: UpdateBusinessDto,
+    files: { logo?: Express.Multer.File[]; gallery?: Express.Multer.File[] } = {},
+    actorRole?: string,
+    targetBusinessId?: string,
+  ) {
+    let business;
+    if (actorRole === 'admin' && targetBusinessId) {
+      business = await this.businessModel.findById(targetBusinessId);
+    } else {
+      business = await this.businessModel.findOne({ ownerId, deletedAt: null });
+    }
+
+    if (!business) {
+      throw new NotFoundException('Business not found');
+    }
+
+    // Handle Logo Update
+    if (files.logo && files.logo.length > 0) {
+      // Delete old logo if exists
+      if (business.logo?.publicId) {
+        try {
+          await this.cloudinaryService.deleteImage(business.logo.publicId);
+        } catch (error) {
+          this.customLogger.error(
+            `Failed to delete old logo: ${business.logo.publicId}`,
+            error.stack,
+            'BusinessService',
+          );
+        }
+      }
+      const uploaded = await this.cloudinaryService.uploadImage(
+        files.logo[0].buffer,
+        'business-logos',
+      );
+      business.logo = {
+        url: uploaded.url,
+        publicId: uploaded.publicId,
+        uploadedAt: new Date(),
+      };
+    }
+
+    // Handle Gallery Update
+    if (files.gallery && files.gallery.length > 0) {
+      // Optional: Delete old gallery images if replacing
+      // For now, let's append to gallery if they send new ones?
+      // Or replace? Standard Patch with files usually replaces.
+      // Let's replace for consistency with logo.
+      for (const img of business.gallery) {
+        if (img.publicId) {
+          try {
+            await this.cloudinaryService.deleteImage(img.publicId);
+          } catch (error) {
+            this.customLogger.error(
+              `Failed to delete gallery image: ${img.publicId}`,
+              error.stack,
+              'BusinessService',
+            );
+          }
+        }
+      }
+      const uploadedGallery = await Promise.all(
+        files.gallery.map(async (file) => {
+          const uploaded = await this.cloudinaryService.uploadImage(
+            file.buffer,
+            'business-gallery',
+          );
+          return {
+            url: uploaded.url,
+            publicId: uploaded.publicId,
+            uploadedAt: new Date(),
+          };
+        }),
+      );
+      business.gallery = uploadedGallery;
+    }
+
+    // Update text fields
+    const { openingHour, ...otherDetails } = updateDto;
+
+    if (openingHour) {
+      business.openingHours = openingHour;
+    }
+
+    Object.assign(business, otherDetails);
+
+    await business.save();
+
+    this.customLogger.log(
+      `Business updated: ${business._id.toString()} by user: ${ownerId}`,
+      'BusinessService',
+    );
+
+    return business;
+  }
+
   async getMyBusiness(ownerId: string) {
     const business = await this.businessModel
       .findOne({ ownerId, deletedAt: null })
@@ -488,10 +587,10 @@ export class BusinessService {
     const averageRating =
       reviews.length > 0
         ? Number.parseFloat(
-            (
-              reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
-            ).toFixed(1),
-          )
+          (
+            reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+          ).toFixed(1),
+        )
         : 0;
 
     return {
@@ -957,17 +1056,17 @@ export class BusinessService {
           _id:
             viewType === 'yearly'
               ? {
-                  $dateToString: {
-                    format: '%Y-%m',
-                    date: '$services.dateAndTime',
-                  },
-                }
-              : {
-                  $dateToString: {
-                    format: '%Y-%m-%d',
-                    date: '$services.dateAndTime',
-                  },
+                $dateToString: {
+                  format: '%Y-%m',
+                  date: '$services.dateAndTime',
                 },
+              }
+              : {
+                $dateToString: {
+                  format: '%Y-%m-%d',
+                  date: '$services.dateAndTime',
+                },
+              },
           totalRevenue: { $sum: '$serviceInfo.price' },
         },
       },

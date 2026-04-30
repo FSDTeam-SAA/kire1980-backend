@@ -10,6 +10,7 @@ import {
   Matches,
   Min,
   ValidateNested,
+  IsUrl,
 } from 'class-validator';
 
 export class OpeningHourDto {
@@ -28,6 +29,24 @@ export class OpeningHourDto {
     message: 'closeTime must be in HH:mm format',
   })
   closeTime: string;
+}
+
+export class SocialMediaLinksDto {
+  @IsOptional()
+  @IsUrl()
+  linkedin?: string;
+
+  @IsOptional()
+  @IsUrl()
+  facebook?: string;
+
+  @IsOptional()
+  @IsUrl()
+  instagram?: string;
+
+  @IsOptional()
+  @IsUrl()
+  twitter?: string;
 }
 
 export class CreateBusinessDto {
@@ -71,6 +90,15 @@ export class CreateBusinessDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsUrl()
+  website?: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => SocialMediaLinksDto)
+  socialMediaLinks?: SocialMediaLinksDto;
 
   @Transform(({ value }) => {
     let parsedValue = value;

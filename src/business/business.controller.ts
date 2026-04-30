@@ -20,9 +20,12 @@ import {
   ApiTags,
   ApiBearerAuth,
   ApiOperation,
+  ApiConsumes,
+  ApiBody,
 } from '@nestjs/swagger';
 import { BusinessService } from './business.service';
 import { CreateBusinessDto } from './dto/create-business.dto';
+import { UpdateBusinessDto } from './dto/update-business.dto';
 import { BusinessQueryDto } from './dto/business-query.dto';
 import { AuthGuard } from '../common/guards/auth.guard';
 import { OptionalAuthGuard } from '../common/guards/optional-auth.guard';
@@ -40,7 +43,7 @@ interface AuthenticatedRequest extends Request {
 @ApiTags('business')
 @Controller('businesses')
 export class BusinessController {
-  constructor(private readonly businessService: BusinessService) {}
+  constructor(private readonly businessService: BusinessService) { }
 
   // 1) Create business and store businessId into AuthUser.businessId
   @ApiBearerAuth('JWT-auth')
@@ -96,6 +99,49 @@ export class BusinessController {
     return this.businessService.getMyBusiness(req.user.userId);
   }
 
+  // 3.1) Update single business for current user
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Update current user business' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    type: UpdateBusinessDto,
+    description: 'Update business details with optional logo and gallery files',
+  })
+  @UseGuards(AuthGuard)
+  @Patch('me')
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'logo', maxCount: 1 },
+        { name: 'gallery', maxCount: 10 },
+      ],
+      {
+        storage: memoryStorage(),
+        limits: { fileSize: 5 * 1024 * 1024 },
+        fileFilter: (_req, file, cb) => {
+          if (!file.mimetype.startsWith('image/')) {
+            cb(new BadRequestException('Only image files are allowed'), false);
+            return;
+          }
+          cb(null, true);
+        },
+      },
+    ),
+  )
+  updateMyBusiness(
+    @Req() req: AuthenticatedRequest,
+    @Body() payload: UpdateBusinessDto,
+    @UploadedFiles()
+    files: { logo?: Express.Multer.File[]; gallery?: Express.Multer.File[] },
+  ) {
+    return this.businessService.updateBusiness(
+      req.user.userId,
+      payload,
+      files,
+      req.user.role,
+    );
+  }
+
   // 3.1) Business owner dashboard statistics
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get business owner dashboard statistics' })
@@ -125,6 +171,54 @@ export class BusinessController {
     @Req() req: AuthenticatedRequest,
   ) {
     return this.businessService.toggleBusinessStatus(businessId, req.user.role);
+  }
+
+  // 5.1) Update business by ID (Admin only)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Update business by ID (Admin only)' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    type: UpdateBusinessDto,
+    description: 'Update business details with optional logo and gallery files',
+  })
+  @UseGuards(AuthGuard)
+  @Patch(':id')
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'logo', maxCount: 1 },
+        { name: 'gallery', maxCount: 10 },
+      ],
+      {
+        storage: memoryStorage(),
+        limits: { fileSize: 5 * 1024 * 1024 },
+        fileFilter: (_req, file, cb) => {
+          if (!file.mimetype.startsWith('image/')) {
+            cb(new BadRequestException('Only image files are allowed'), false);
+            return;
+          }
+          cb(null, true);
+        },
+      },
+    ),
+  )
+  updateBusinessById(
+    @Param('id') businessId: string,
+    @Req() req: AuthenticatedRequest,
+    @Body() payload: UpdateBusinessDto,
+    @UploadedFiles()
+    files: { logo?: Express.Multer.File[]; gallery?: Express.Multer.File[] },
+  ) {
+    if (req.user.role !== 'admin') {
+      throw new ForbiddenException('Only admin can update any business');
+    }
+    return this.businessService.updateBusiness(
+      null,
+      payload,
+      files,
+      req.user.role,
+      businessId,
+    );
   }
 
   // 6) Get individual staff statistics for business owner dashboard
