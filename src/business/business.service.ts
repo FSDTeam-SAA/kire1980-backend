@@ -199,7 +199,7 @@ export class BusinessService {
   async createBusiness(
     ownerId: string,
     payload: CreateBusinessDto,
-    files: Array<Express.Multer.File> = [],
+    files: { logo?: Express.Multer.File[]; gallery?: Express.Multer.File[] } = {},
   ) {
     const owner = await this.authUserModel.findById(ownerId);
     if (!owner) {
@@ -222,8 +222,22 @@ export class BusinessService {
       throw new BadRequestException('Business email already exists');
     }
 
+    // Handle Logo Upload
+    let uploadedLogo = null;
+    if (files.logo && files.logo.length > 0) {
+      const uploaded = await this.cloudinaryService.uploadImage(
+        files.logo[0].buffer,
+        'business-logos',
+      );
+      uploadedLogo = {
+        url: uploaded.url,
+        publicId: uploaded.publicId,
+      };
+    }
+
+    // Handle Gallery Upload
     const uploadedGallery = await Promise.all(
-      (files || []).map(async (file) => {
+      (files.gallery || []).map(async (file) => {
         const uploaded = await this.cloudinaryService.uploadImage(
           file.buffer,
           'business-gallery',
@@ -255,6 +269,7 @@ export class BusinessService {
             ownerId,
             status: BusinessStatus.PENDING,
             verification: BusinessVerification.PENDING,
+            logo: uploadedLogo,
             gallery: uploadedGallery,
             openingHours: payload.openingHour,
           },

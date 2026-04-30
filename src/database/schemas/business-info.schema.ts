@@ -96,6 +96,9 @@ export class BusinessInfo extends Document {
   @Prop()
   sector?: string;
 
+  @Prop({ type: GalleryImage, default: null })
+  logo?: GalleryImage;
+
   @Prop({ type: [GalleryImage], default: [] })
   gallery!: GalleryImage[];
 

@@ -14,7 +14,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import type { Request } from 'express';
-import { FilesInterceptor } from '@nestjs/platform-express';
+import { FileFieldsInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import {
   ApiTags,
@@ -48,22 +48,29 @@ export class BusinessController {
   @UseGuards(AuthGuard)
   @Post()
   @UseInterceptors(
-    FilesInterceptor('gallery', 10, {
-      storage: memoryStorage(),
-      limits: { fileSize: 5 * 1024 * 1024 },
-      fileFilter: (_req, file, cb) => {
-        if (!file.mimetype.startsWith('image/')) {
-          cb(new BadRequestException('Only image files are allowed'), false);
-          return;
-        }
-        cb(null, true);
+    FileFieldsInterceptor(
+      [
+        { name: 'logo', maxCount: 1 },
+        { name: 'gallery', maxCount: 10 },
+      ],
+      {
+        storage: memoryStorage(),
+        limits: { fileSize: 5 * 1024 * 1024 },
+        fileFilter: (_req, file, cb) => {
+          if (!file.mimetype.startsWith('image/')) {
+            cb(new BadRequestException('Only image files are allowed'), false);
+            return;
+          }
+          cb(null, true);
+        },
       },
-    }),
+    ),
   )
   createBusiness(
     @Req() req: AuthenticatedRequest,
     @Body() payload: CreateBusinessDto,
-    @UploadedFiles() files: Array<Express.Multer.File>,
+    @UploadedFiles()
+    files: { logo?: Express.Multer.File[]; gallery?: Express.Multer.File[] },
   ) {
     return this.businessService.createBusiness(req.user.userId, payload, files);
   }
