@@ -701,7 +701,7 @@ export class BookingService {
         );
       }
 
-      if (staffMember.status !== 'active') {
+      if (!staffMember.isActive) {
         throw new BadRequestException(
           `Staff member is not active`,
         );
@@ -779,19 +779,17 @@ export class BookingService {
       BookingService.name,
     );
 
-    // 8. Send notification to customer
+    // 8. Send notification to customer and business
     try {
-      await this.emailQueueService.addEmailJob({
-        email: (await this.authUserModel.findById(customerId))?.email,
-        subject: 'Booking Confirmation',
-        template: 'booking-confirmation',
-        data: {
-          customerName: (await this.authUserModel.findById(customerId))
-            ?.firstName,
-          businessName: business.businessName,
-          bookingId: booking._id,
-          bookingStatus: 'confirmed',
-        },
+      const customer = await this.authUserModel.findById(customerId);
+      await this.emailQueueService.sendBookingCreatedNotificationEmails({
+        customerEmail: customer?.email || '',
+        customerName: customer?.fullName || 'Customer',
+        businessEmail: business.businessEmail || '',
+        businessName: business.businessName,
+        bookingId: booking._id.toString(),
+        firstServiceDateTime: createManualBookingDto.services[0]?.dateAndTime || '',
+        totalServices: createManualBookingDto.services.length,
       });
     } catch (error) {
       this.customLogger.warn(
@@ -808,7 +806,7 @@ export class BookingService {
       bookingStatus: booking.bookingStatus,
       notes: booking.notes,
       confirmedAt: booking.confirmedAt,
-      createdAt: booking.createdAt,
+      createdAt: new Date(booking._id.getTimestamp()),
     };
   }
 }
