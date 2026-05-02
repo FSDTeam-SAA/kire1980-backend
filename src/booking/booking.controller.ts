@@ -46,7 +46,7 @@ export class BookingController {
     @Body() createManualBookingDto: CreateManualBookingDto,
   ) {
     // Check if user is business owner
-    if (req.user.role !== 'business_owner') {
+    if (req.user.role !== 'businessowner') {
       throw new ForbiddenException('Only business owners can create manual bookings');
     }
 
