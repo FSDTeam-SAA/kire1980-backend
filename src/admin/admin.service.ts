@@ -45,19 +45,15 @@ export class AdminService {
 
     try {
       const business = await this.businessInfoModel
-        .findOne({ _id: businessId, deletedAt: null })
+        .findById(businessId)
         .session(session);
 
       if (!business) {
         throw new NotFoundException('Business not found');
       }
 
-      // Soft delete business
-      await this.businessInfoModel.findByIdAndUpdate(
-        businessId,
-        { deletedAt: new Date() },
-        { session, new: true },
-      );
+      // Hard delete business
+      await this.businessInfoModel.findByIdAndDelete(businessId, { session });
 
       // Update business owner back to customer role
       await this.authUserModel.findByIdAndUpdate(
@@ -72,7 +68,7 @@ export class AdminService {
       await session.commitTransaction();
 
       this.customLogger.log(
-        `Business soft deleted by admin: ${businessId}`,
+        `Business permanently deleted by admin: ${businessId}`,
         AdminService.name,
       );
 
@@ -331,20 +327,13 @@ export class AdminService {
         throw new NotFoundException('User not found');
       }
 
-      // Update user with soft delete
-      await this.authUserModel.findByIdAndUpdate(
-        userId,
-        {
-          status: 'DELETED',
-          deletedAt: new Date(),
-        },
-        { session, new: true },
-      );
+      // Hard delete user - completely remove from database
+      await this.authUserModel.findByIdAndDelete(userId, { session });
 
       await session.commitTransaction();
 
       this.customLogger.log(
-        `User soft deleted by admin: ${userId}`,
+        `User permanently deleted by admin: ${userId}`,
         AdminService.name,
       );
 
