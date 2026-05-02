@@ -641,4 +641,174 @@ export class BookingService {
       );
     }
   }
+
+  async createManualBooking(
+    businessOwnerId: string,
+    createManualBookingDto: any,
+  ) {
+    // 1. Verify business owner exists and has a business
+    const businessOwner = await this.authUserModel.findById(businessOwnerId);
+    if (!businessOwner) {
+      throw new NotFoundException('Business owner not found');
+    }
+
+    if (!businessOwner.businessId) {
+      throw new ForbiddenException(
+        'You do not have a business associated with your account',
+      );
+    }
+
+    // 2. Verify business exists
+    const business = await this.businessModel.findById(businessOwner.businessId);
+    if (!business) {
+      throw new NotFoundException('Business not found');
+    }
+
+    // 3. Verify all services belong to this business
+    for (const service of createManualBookingDto.services) {
+      const serviceDoc = await this.serviceModel.findById(service.serviceId);
+      if (!serviceDoc) {
+        throw new NotFoundException(`Service ${service.serviceId} not found`);
+      }
+
+      if (serviceDoc.businessId.toString() !== business._id.toString()) {
+        throw new BadRequestException(
+          `Service ${service.serviceId} does not belong to your business`,
+        );
+      }
+
+      if (!serviceDoc.isActive) {
+        throw new BadRequestException(
+          `Service ${service.serviceId} is not active`,
+        );
+      }
+    }
+
+    // 4. Verify all staff members belong to this business
+    for (const service of createManualBookingDto.services) {
+      const staffMember = await this.staffModel.findById(
+        service.selectedProvider,
+      );
+      if (!staffMember) {
+        throw new NotFoundException(
+          `Staff member ${service.selectedProvider} not found`,
+        );
+      }
+
+      if (staffMember.businessId.toString() !== business._id.toString()) {
+        throw new BadRequestException(
+          `Staff member does not belong to your business`,
+        );
+      }
+
+      if (staffMember.status !== 'active') {
+        throw new BadRequestException(
+          `Staff member is not active`,
+        );
+      }
+    }
+
+    // 5. Verify booking dates are in future
+    const now = new Date();
+    for (const service of createManualBookingDto.services) {
+      const bookingDate = new Date(service.dateAndTime);
+      if (bookingDate <= now) {
+        throw new BadRequestException(
+          'Booking date and time must be in the future',
+        );
+      }
+    }
+
+    // 6. Find or create customer
+    let customerId: string;
+
+    if (createManualBookingDto.customerId) {
+      // Existing customer
+      const customer = await this.authUserModel.findById(
+        createManualBookingDto.customerId,
+      );
+      if (!customer) {
+        throw new NotFoundException('Customer not found');
+      }
+      customerId = customer._id.toString();
+    } else if (
+      createManualBookingDto.customerEmail ||
+      createManualBookingDto.customerPhone
+    ) {
+      // Find or create new customer
+      let customer = await this.authUserModel.findOne({
+        email: createManualBookingDto.customerEmail,
+      });
+
+      if (!customer) {
+        // Create new customer (basic info only)
+        customer = await this.authUserModel.create({
+          email: createManualBookingDto.customerEmail,
+          firstName: createManualBookingDto.customerName || 'Customer',
+          phone: createManualBookingDto.customerPhone,
+          role: 'customer',
+          status: 'activated',
+          password: Math.random().toString(36).substring(7), // Temporary password
+        });
+      }
+
+      customerId = customer._id.toString();
+    } else {
+      throw new BadRequestException(
+        'Either customerId or customerEmail/customerPhone must be provided',
+      );
+    }
+
+    // 7. Create booking with CONFIRMED status by default
+    const booking = await this.bookingModel.create({
+      userId: new Types.ObjectId(customerId),
+      businessId: new Types.ObjectId(business._id),
+      services: createManualBookingDto.services.map((service: any) => ({
+        serviceId: new Types.ObjectId(service.serviceId),
+        dateAndTime: new Date(service.dateAndTime),
+        selectedProvider: new Types.ObjectId(service.selectedProvider),
+      })),
+      bookingStatus: 'confirmed', // ✅ CONFIRMED by default for manual bookings
+      notes: createManualBookingDto.notes || 'Manual booking created by business owner',
+      confirmedAt: new Date(),
+      isDeleted: false,
+    });
+
+    this.customLogger.log(
+      `Manual booking created by business owner ${businessOwnerId} for customer ${customerId}`,
+      BookingService.name,
+    );
+
+    // 8. Send notification to customer
+    try {
+      await this.emailQueueService.addEmailJob({
+        email: (await this.authUserModel.findById(customerId))?.email,
+        subject: 'Booking Confirmation',
+        template: 'booking-confirmation',
+        data: {
+          customerName: (await this.authUserModel.findById(customerId))
+            ?.firstName,
+          businessName: business.businessName,
+          bookingId: booking._id,
+          bookingStatus: 'confirmed',
+        },
+      });
+    } catch (error) {
+      this.customLogger.warn(
+        `Failed to send booking confirmation email: ${error}`,
+        BookingService.name,
+      );
+    }
+
+    return {
+      _id: booking._id,
+      userId: booking.userId,
+      businessId: booking.businessId,
+      services: booking.services,
+      bookingStatus: booking.bookingStatus,
+      notes: booking.notes,
+      confirmedAt: booking.confirmedAt,
+      createdAt: booking.createdAt,
+    };
+  }
 }

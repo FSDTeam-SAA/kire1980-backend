@@ -9,6 +9,7 @@ import {
   Query,
   UseGuards,
   Req,
+  ForbiddenException,
 } from '@nestjs/common';
 import type { Request } from 'express';
 import {
@@ -18,6 +19,7 @@ import {
 } from '@nestjs/swagger';
 import { BookingService } from './booking.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
+import { CreateManualBookingDto } from './dto/create-manual-booking.dto';
 import { UpdateBookingDto } from './dto/update-booking.dto';
 import { AuthGuard } from '../common/guards/auth.guard';
 import { BookingStatus } from '../database/schemas/booking.schema';
@@ -36,6 +38,24 @@ interface AuthenticatedRequest extends Request {
 export class BookingController {
   constructor(private readonly bookingService: BookingService) {}
 
+  @Post('manual')
+  @ApiOperation({ summary: 'Create manual booking (business owner only)' })
+  @UseGuards(AuthGuard)
+  async createManualBooking(
+    @Req() req: AuthenticatedRequest,
+    @Body() createManualBookingDto: CreateManualBookingDto,
+  ) {
+    // Check if user is business owner
+    if (req.user.role !== 'business_owner') {
+      throw new ForbiddenException('Only business owners can create manual bookings');
+    }
+
+    return this.bookingService.createManualBooking(
+      req.user.userId,
+      createManualBookingDto,
+    );
+  }
+
   @Post()
   @ApiOperation({ summary: 'Create a new booking' })
   @UseGuards(AuthGuard)
@@ -47,7 +67,6 @@ export class BookingController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all bookings with filters' })
   @UseGuards(AuthGuard)
   findAll(
     @Query('page') page?: string,
