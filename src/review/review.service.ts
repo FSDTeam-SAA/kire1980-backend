@@ -297,6 +297,13 @@ export class ReviewService {
       throw new BadRequestException('Invalid review ID');
     }
 
+    // Only admin can delete reviews
+    if (userRole !== 'admin') {
+      throw new ForbiddenException(
+        'Only admin can delete reviews',
+      );
+    }
+
     const review = await this.reviewModel.findOne({
       _id: id,
       isDeleted: false,
@@ -306,16 +313,12 @@ export class ReviewService {
       throw new NotFoundException('Review not found');
     }
 
-    // Only admin can delete reviews
-    if (userRole !== 'admin') {
-      throw new ForbiddenException(
-        'Only admin can delete reviews',
-      );
-    }
-
-    // Soft delete
-    review.isDeleted = true;
-    await review.save();
+    // Soft delete using findByIdAndUpdate
+    await this.reviewModel.findByIdAndUpdate(
+      id,
+      { isDeleted: true },
+      { new: true },
+    );
 
     this.customLogger.log(
       `Review ${id} deleted by admin ${userId}`,
