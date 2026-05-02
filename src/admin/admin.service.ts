@@ -52,18 +52,21 @@ export class AdminService {
         throw new NotFoundException('Business not found');
       }
 
-      business.deletedAt = new Date();
-      await business.save({ session });
+      // Soft delete business
+      await this.businessInfoModel.findByIdAndUpdate(
+        businessId,
+        { deletedAt: new Date() },
+        { session, new: true },
+      );
 
-      await this.authUserModel.updateOne(
-        { _id: business.ownerId },
+      // Update business owner back to customer role
+      await this.authUserModel.findByIdAndUpdate(
+        business.ownerId,
         {
-          $set: {
-            businessId: null,
-            role: 'customer',
-          },
+          businessId: null,
+          role: 'customer',
         },
-        { session },
+        { session, new: true },
       );
 
       await session.commitTransaction();
@@ -318,23 +321,41 @@ export class AdminService {
       throw new BadRequestException('Invalid user ID');
     }
 
-    const user = await this.authUserModel.findById(userId);
+    const session = await this.connection.startSession();
+    session.startTransaction();
 
-    if (!user) {
-      throw new NotFoundException('User not found');
+    try {
+      const user = await this.authUserModel.findById(userId).session(session);
+
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      // Update user with soft delete
+      await this.authUserModel.findByIdAndUpdate(
+        userId,
+        {
+          status: 'DELETED',
+          deletedAt: new Date(),
+        },
+        { session, new: true },
+      );
+
+      await session.commitTransaction();
+
+      this.customLogger.log(
+        `User soft deleted by admin: ${userId}`,
+        AdminService.name,
+      );
+
+      return {
+        userId,
+      };
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      await session.endSession();
     }
-
-    user.status = 'DELETED';
-    user.deletedAt = new Date();
-    await user.save();
-
-    this.customLogger.log(
-      `User soft deleted by admin: ${userId}`,
-      AdminService.name,
-    );
-
-    return {
-      userId,
-    };
   }
 }
