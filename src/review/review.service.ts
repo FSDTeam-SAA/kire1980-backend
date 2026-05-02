@@ -292,7 +292,7 @@ export class ReviewService {
     return review;
   }
 
-  async remove(id: string, userId: string) {
+  async remove(id: string, userId: string, userRole?: string) {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid review ID');
     }
@@ -306,10 +306,10 @@ export class ReviewService {
       throw new NotFoundException('Review not found');
     }
 
-    // Check if user owns the review
-    if (review.userId.toString() !== userId) {
+    // Only admin can delete reviews
+    if (userRole !== 'admin') {
       throw new ForbiddenException(
-        'You are not authorized to delete this review',
+        'Only admin can delete reviews',
       );
     }
 
@@ -318,7 +318,7 @@ export class ReviewService {
     await review.save();
 
     this.customLogger.log(
-      `Review ${id} deleted by user ${userId}`,
+      `Review ${id} deleted by admin ${userId}`,
       ReviewService.name,
     );
 

@@ -312,4 +312,29 @@ export class AdminService {
       topBusinesses,
     };
   }
+
+  async deleteUserByAdmin(userId: string): Promise<{ userId: string }> {
+    if (!Types.ObjectId.isValid(userId)) {
+      throw new BadRequestException('Invalid user ID');
+    }
+
+    const user = await this.authUserModel.findById(userId);
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    user.status = 'DELETED';
+    user.deletedAt = new Date();
+    await user.save();
+
+    this.customLogger.log(
+      `User soft deleted by admin: ${userId}`,
+      AdminService.name,
+    );
+
+    return {
+      userId,
+    };
+  }
 }

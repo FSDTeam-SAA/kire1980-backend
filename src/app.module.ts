@@ -12,6 +12,7 @@ import { BookingModule } from './booking/booking.module';
 import { WishlistModule } from './wishlist/wishlist.module';
 import { AdminModule } from './admin/admin.module';
 import { ContactModule } from './contact/contact.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 import { DatabaseModule } from './database/database.module';
 import { RedisModule } from './common/modules/redis.module';
 import { RateLimitModule } from './common/modules/rate-limit.module';
@@ -52,6 +53,7 @@ const isRateLimitEnabled = process.env.NODE_ENV !== 'development';
     WishlistModule,
     AdminModule,
     ContactModule,
+    AnalyticsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

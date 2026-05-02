@@ -76,6 +76,6 @@ export class ReviewController {
   @Delete(':id')
   @UseGuards(AuthGuard)
   remove(@Param('id') id: string, @Request() req) {
-    return this.reviewService.remove(id, req.user.userId);
+    return this.reviewService.remove(id, req.user.userId, req.user.role);
   }
 }

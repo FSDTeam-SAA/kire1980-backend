@@ -35,6 +35,25 @@ export class AdminController {
     };
   }
 
+  @Delete('users/:userId')
+  async deleteUser(
+    @Request() req: { user: { role: string } },
+    @Param('userId') userId: string,
+  ) {
+    if (req.user.role !== 'admin') {
+      throw new ForbiddenException('Only admin can delete user');
+    }
+
+    const result: { userId: string } =
+      await this.adminService.deleteUserByAdmin(userId);
+
+    return {
+      success: true,
+      message: 'User deleted successfully',
+      data: result,
+    };
+  }
+
   @Get('overview')
   async getOverview(@Request() req: { user: { role: string } }) {
     if (req.user.role !== 'admin') {
