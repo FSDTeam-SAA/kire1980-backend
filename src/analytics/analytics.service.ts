@@ -28,19 +28,19 @@ export class AnalyticsService {
       // 1. Total completed bookings count
       const totalCompletedBookings = await this.bookingModel.countDocuments({
         isDeleted: false,
-        status: 'COMPLETED',
+        bookingStatus: 'completed',
       });
 
       // 2. Total verified business count
       const totalVerifiedBusinesses = await this.businessModel.countDocuments({
         deletedAt: null,
-        verified: true,
+        verification: 'verified',
       });
 
       // 3. Active bookings count (not deleted, not completed, not cancelled)
       const activeBookings = await this.bookingModel.countDocuments({
         isDeleted: false,
-        status: { $nin: ['COMPLETED', 'CANCELLED', 'REJECTED'] },
+        bookingStatus: { $nin: ['completed', 'cancelled', 'rejected'] },
       });
 
       // 4. Static availability text
