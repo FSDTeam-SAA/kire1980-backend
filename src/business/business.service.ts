@@ -310,14 +310,14 @@ export class BusinessService {
     query: BusinessQueryDto,
     user?: { userId?: string; role: string },
   ) {
+
     let {
       page = 1,
       limit = 10,
       search,
       sortBy = 'createdAt',
       sortOrder = 'desc',
-      city,
-      country,
+      location,
       postalCode,
       zipCode,
       filterBy,
@@ -340,12 +340,12 @@ export class BusinessService {
       ];
     }
 
-    if (city) {
-      filter.city = { $regex: city, $options: 'i' };
-    }
 
-    if (country) {
-      filter.country = { $regex: country, $options: 'i' };
+    if (location) {
+      filter.$or = [
+        { city: { $regex: location, $options: 'i' } },
+        { country: { $regex: location, $options: 'i' } },
+      ];
     }
 
     const resolvedPostalCode = postalCode ?? zipCode;

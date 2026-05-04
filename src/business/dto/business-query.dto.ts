@@ -18,15 +18,11 @@ export class BusinessQueryDto extends PaginationDto {
   @IsEnum(BusinessFilterType)
   filterBy?: BusinessFilterType;
 
-  @ApiPropertyOptional({ description: 'Filter by city' })
-  @IsOptional()
-  @IsString()
-  city?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by country' })
+  @ApiPropertyOptional({ description: 'Filter by location (matches city or country)' })
   @IsOptional()
   @IsString()
-  country?: string;
+  location?: string;
 
   @ApiPropertyOptional({ description: 'Filter by postal code' })
   @IsOptional()
