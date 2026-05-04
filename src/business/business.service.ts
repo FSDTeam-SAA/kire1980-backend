@@ -323,9 +323,6 @@ export class BusinessService {
       zipCode,
       filterBy,
     } = query;
-    if (category) {
-      filter.businessCategory = { $regex: category, $options: 'i' };
-    }
 
     const filter: any = {
       deletedAt: null,
@@ -344,12 +341,15 @@ export class BusinessService {
       ];
     }
 
-
     if (location) {
       filter.$or = [
         { city: { $regex: location, $options: 'i' } },
         { country: { $regex: location, $options: 'i' } },
       ];
+    }
+
+    if (category) {
+      filter.businessCategory = { $regex: category, $options: 'i' };
     }
 
     const resolvedPostalCode = postalCode ?? zipCode;

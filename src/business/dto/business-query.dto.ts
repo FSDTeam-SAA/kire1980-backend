@@ -1,7 +1,4 @@
-  @ApiPropertyOptional({ description: 'Filter by business category' })
-  @IsOptional()
-  @IsString()
-  category?: string;
+
 import { IsEnum, IsInt, IsOptional, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PaginationDto } from '../../common/decorators/api-pagination.decorator';
@@ -14,6 +11,11 @@ export enum BusinessFilterType {
 }
 
 export class BusinessQueryDto extends PaginationDto {
+  @ApiPropertyOptional({ description: 'Filter by business category' })
+  @IsOptional()
+  @IsString()
+  category?: string;
+
   @ApiPropertyOptional({
     enum: BusinessFilterType,
     description: 'Filter businesses by popularity, recency, or past bookings',
@@ -21,7 +23,6 @@ export class BusinessQueryDto extends PaginationDto {
   @IsOptional()
   @IsEnum(BusinessFilterType)
   filterBy?: BusinessFilterType;
-
 
   @ApiPropertyOptional({ description: 'Filter by location (matches city or country)' })
   @IsOptional()
