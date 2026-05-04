@@ -744,10 +744,10 @@ export class BookingService {
         // Create new customer (basic info only)
         customer = await this.authUserModel.create({
           email: createManualBookingDto.customerEmail,
-          firstName: createManualBookingDto.customerName || 'Customer',
-          phone: createManualBookingDto.customerPhone,
+          fullName: createManualBookingDto.customerName || 'Customer',
+          phoneNumber: createManualBookingDto.customerPhone,
           role: 'customer',
-          status: 'activated',
+          status: 'ACTIVE',
           password: Math.random().toString(36).substring(7), // Temporary password
         });
       }
