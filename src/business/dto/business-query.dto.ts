@@ -1,3 +1,7 @@
+  @ApiPropertyOptional({ description: 'Filter by business category' })
+  @IsOptional()
+  @IsString()
+  category?: string;
 import { IsEnum, IsInt, IsOptional, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PaginationDto } from '../../common/decorators/api-pagination.decorator';

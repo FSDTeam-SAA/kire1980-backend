@@ -12,11 +12,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import type { Request } from 'express';
-import {
-  ApiTags,
-  ApiBearerAuth,
-  ApiOperation,
-} from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { BookingService } from './booking.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { CreateManualBookingDto } from './dto/create-manual-booking.dto';
@@ -47,7 +43,9 @@ export class BookingController {
   ) {
     // Check if user is business owner
     if (req.user.role !== 'businessowner') {
-      throw new ForbiddenException('Only business owners can create manual bookings');
+      throw new ForbiddenException(
+        'Only business owners can create manual bookings',
+      );
     }
 
     return this.bookingService.createManualBooking(

@@ -318,10 +318,14 @@ export class BusinessService {
       sortBy = 'createdAt',
       sortOrder = 'desc',
       location,
+      category,
       postalCode,
       zipCode,
       filterBy,
     } = query;
+    if (category) {
+      filter.businessCategory = { $regex: category, $options: 'i' };
+    }
 
     const filter: any = {
       deletedAt: null,
