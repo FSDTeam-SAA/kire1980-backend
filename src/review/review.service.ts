@@ -85,7 +85,15 @@ export class ReviewService {
       ReviewService.name,
     );
 
-    return review;
+    // Populate and return the created review
+    const populatedReview = await this.reviewModel
+      .findById(review._id)
+      .populate('userId', 'email firstName lastName')
+      .populate('businessId', 'businessName')
+      .populate('serviceId', 'serviceName')
+      .lean();
+
+    return populatedReview;
   }
 
   async findAll(page = 1, limit = 10, businessId?: string, serviceId?: string) {
