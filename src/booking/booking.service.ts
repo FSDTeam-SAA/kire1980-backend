@@ -56,6 +56,8 @@ export class BookingService {
       throw new NotFoundException('Business not found');
     }
 
+    const businessOwner = await this.authUserModel.findById(business.ownerId);
+
     const normalizedBusinessId = new Types.ObjectId(
       createBookingDto.businessId,
     );
@@ -177,6 +179,9 @@ export class BookingService {
     const bookingId = booking._id.toString();
     const customerName = user.fullName;
     const businessName = business.businessName;
+    const businessOwnerEmail = businessOwner?.email ?? business.businessEmail;
+    const businessOwnerPhoneNumber =
+      businessOwner?.phoneNumber ?? business.phoneNumber;
     const firstServiceDateTime =
       createBookingDto.services[0]?.dateAndTime.toISOString() ||
       new Date().toISOString();
@@ -185,7 +190,7 @@ export class BookingService {
       await this.emailQueueService.sendBookingCreatedNotificationEmails({
         customerEmail: user.email,
         customerName,
-        businessEmail: business.businessEmail,
+        businessEmail: businessOwnerEmail,
         businessName,
         bookingId,
         firstServiceDateTime,
@@ -206,9 +211,9 @@ export class BookingService {
       );
     }
 
-    if (!business.phoneNumber) {
+    if (!businessOwnerPhoneNumber) {
       this.customLogger.warn(
-        `Business phone number missing for booking ${bookingId}; business SMS skipped`,
+        `Business owner phone number missing for booking ${bookingId}; business SMS skipped`,
         BookingService.name,
       );
     }
@@ -217,7 +222,7 @@ export class BookingService {
       await this.smsQueueService.sendBookingCreatedNotificationSms({
         customerPhoneNumber: user.phoneNumber,
         customerName,
-        businessPhoneNumber: business.phoneNumber,
+        businessPhoneNumber: businessOwnerPhoneNumber,
         businessName,
         bookingId,
         firstServiceDateTime,
@@ -659,7 +664,9 @@ export class BookingService {
     }
 
     // 2. Verify business exists
-    const business = await this.businessModel.findById(businessOwner.businessId);
+    const business = await this.businessModel.findById(
+      businessOwner.businessId,
+    );
     if (!business) {
       throw new NotFoundException('Business not found');
     }
@@ -702,9 +709,7 @@ export class BookingService {
       }
 
       if (!staffMember.isActive) {
-        throw new BadRequestException(
-          `Staff member is not active`,
-        );
+        throw new BadRequestException(`Staff member is not active`);
       }
     }
 
@@ -769,7 +774,9 @@ export class BookingService {
         selectedProvider: new Types.ObjectId(service.selectedProvider),
       })),
       bookingStatus: 'confirmed', // ✅ CONFIRMED by default for manual bookings
-      notes: createManualBookingDto.notes || 'Manual booking created by business owner',
+      notes:
+        createManualBookingDto.notes ||
+        'Manual booking created by business owner',
       confirmedAt: new Date(),
       isDeleted: false,
     });
@@ -788,7 +795,8 @@ export class BookingService {
         businessEmail: business.businessEmail || '',
         businessName: business.businessName,
         bookingId: booking._id.toString(),
-        firstServiceDateTime: createManualBookingDto.services[0]?.dateAndTime || '',
+        firstServiceDateTime:
+          createManualBookingDto.services[0]?.dateAndTime || '',
         totalServices: createManualBookingDto.services.length,
       });
     } catch (error) {
