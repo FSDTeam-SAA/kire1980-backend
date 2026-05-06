@@ -32,11 +32,25 @@ export class SmsService {
       throw new Error('TWILIO_PHONE_NUMBER is not configured');
     }
 
-    await this.twilioClient.messages.create({
-      to,
-      from: config.twilio_phone_number,
-      body,
-    });
+    try {
+      const message = await this.twilioClient.messages.create({
+        to,
+        from: config.twilio_phone_number,
+        body,
+      });
+      this.customLogger.log(
+        `SMS sent successfully. SID: ${message.sid}`,
+        'SmsService',
+      );
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.customLogger.error(
+        `Twilio SMS error to ${to}: ${errorMsg}`,
+        error instanceof Error ? error.stack : undefined,
+        'SmsService',
+      );
+      throw error;
+    }
   }
 
   async sendBookingCreatedSms(
