@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import twilio, { Twilio } from 'twilio';
+import { inspect } from 'util';
 import config from '../config/app.config';
 import { CustomLoggerService } from './custom-logger.service';
 
@@ -43,12 +44,26 @@ export class SmsService {
         'SmsService',
       );
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
+      const twilioError = error as any;
+      const details = {
+        message:
+          twilioError?.message ??
+          (error instanceof Error ? error.message : String(error)),
+        code: twilioError?.code,
+        status: twilioError?.status,
+        moreInfo: twilioError?.moreInfo,
+        method: twilioError?.method,
+        url: twilioError?.url,
+        responseBody:
+          twilioError?.response?.body ?? twilioError?.response?.data,
+      };
+
       this.customLogger.error(
-        `Twilio SMS error to ${to}: ${errorMsg}`,
-        error instanceof Error ? error.stack : undefined,
+        `Twilio SMS error to ${to}: ${details.message}`,
+        inspect(details, { depth: null }),
         'SmsService',
       );
+
       throw error;
     }
   }
