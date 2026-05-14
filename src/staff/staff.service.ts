@@ -480,7 +480,7 @@ export class StaffService {
         url: uploadResult.url,
         publicId: uploadResult.publicId,
         uploadedAt: new Date(),
-      };
+      } as any;
     }
 
     // Update staff member - only update fields that are explicitly provided
@@ -495,9 +495,11 @@ export class StaffService {
     if (updateStaffMemberDto.description !== undefined)
       staffMember.description = updateStaffMemberDto.description;
     if (updateStaffMemberDto.schedule !== undefined)
-      staffMember.schedule = updateStaffMemberDto.schedule;
+      staffMember.schedule = updateStaffMemberDto.schedule as any;
     if (updateStaffMemberDto.serviceIds !== undefined)
-      staffMember.serviceIds = updateStaffMemberDto.serviceIds;
+      staffMember.serviceIds = updateStaffMemberDto.serviceIds.map(
+        (id) => new Types.ObjectId(id),
+      );
     if (updateStaffMemberDto.isActive !== undefined)
       staffMember.isActive = updateStaffMemberDto.isActive;
 
