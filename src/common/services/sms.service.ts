@@ -75,10 +75,20 @@ export class SmsService {
     businessName: string,
     firstServiceDateTime: string,
   ): Promise<void> {
-    const body =
-      recipientType === 'customer'
-        ? `Booking confirmed (#${bookingId}) at ${businessName}. First service: ${firstServiceDateTime}.`
-        : `New booking (#${bookingId}) for ${businessName}. First service: ${firstServiceDateTime}.`;
+    const formatDateForSms = (dateStr: string) => {
+      const d = new Date(dateStr);
+      if (Number.isNaN(d.getTime())) return dateStr;
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      const hh = String(d.getHours()).padStart(2, '0');
+      const min = String(d.getMinutes()).padStart(2, '0');
+      return `${dd}.${mm}.${yyyy} во ${hh}:${min}`;
+    };
+
+    const formattedDate = formatDateForSms(firstServiceDateTime);
+
+    const body = `BOOKERSI\nNew reservation :${businessName}\nTime: ${formattedDate}\nBookersi\nwww.bookersl.com`;
 
     await this.sendSms(to, body);
 

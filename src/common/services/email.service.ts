@@ -14,6 +14,12 @@ export interface EmailOptions {
   html?: string;
 }
 
+export interface EmailTestResult {
+  verified: boolean;
+  messageId: string;
+  recipient: string;
+}
+
 @Injectable()
 export class EmailService {
   private transporter: nodemailer.Transporter;
@@ -60,6 +66,55 @@ export class EmailService {
       );
       console.error('Error sending email:', error);
       throw AppError.badRequest('Email sending failed, something went wrong!');
+    }
+  }
+
+  async sendTestEmail(recipientEmail: string): Promise<EmailTestResult> {
+    try {
+      this.customLogger.log(
+        `Verifying email credentials for: ${recipientEmail}`,
+        'EmailService',
+      );
+
+      await this.transporter.verify();
+
+      const mailOptions = {
+        from: String(config.email_from || config.email_user),
+        to: recipientEmail,
+        subject: 'Email credential test',
+        text: 'This is a test email to verify the SMTP credentials are working.',
+        html: `
+          <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+            <h2>Email Credential Test</h2>
+            <p>This message confirms that the SMTP credentials are working.</p>
+            <p><strong>Recipient:</strong> ${recipientEmail}</p>
+            <p><strong>Sent at:</strong> ${new Date().toISOString()}</p>
+          </div>
+        `,
+      };
+
+      const result = await this.transporter.sendMail(mailOptions);
+
+      this.customLogger.log(
+        `Test email sent successfully to: ${recipientEmail}`,
+        'EmailService',
+      );
+
+      return {
+        verified: true,
+        messageId: result.messageId,
+        recipient: recipientEmail,
+      };
+    } catch (error) {
+      this.customLogger.error(
+        `Email credential test failed for ${recipientEmail}`,
+        error instanceof Error ? error.stack : undefined,
+        'EmailService',
+      );
+      console.error('Error testing email credentials:', error);
+      throw AppError.badRequest(
+        'Email credential test failed, check your SMTP settings.',
+      );
     }
   }
 
