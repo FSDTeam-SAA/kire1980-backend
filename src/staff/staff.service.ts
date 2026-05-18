@@ -476,15 +476,33 @@ export class StaffService {
         'staff-avatars',
       );
 
-      (updateStaffMemberDto as any).avatar = {
+      staffMember.avatar = {
         url: uploadResult.url,
         publicId: uploadResult.publicId,
         uploadedAt: new Date(),
-      };
+      } as any;
     }
 
-    // Update staff member
-    Object.assign(staffMember, updateStaffMemberDto);
+    // Update staff member - only update fields that are explicitly provided
+    if (updateStaffMemberDto.firstName !== undefined)
+      staffMember.firstName = updateStaffMemberDto.firstName;
+    if (updateStaffMemberDto.lastName !== undefined)
+      staffMember.lastName = updateStaffMemberDto.lastName;
+    if (updateStaffMemberDto.email !== undefined)
+      staffMember.email = updateStaffMemberDto.email;
+    if (updateStaffMemberDto.phoneNumber !== undefined)
+      staffMember.phoneNumber = updateStaffMemberDto.phoneNumber;
+    if (updateStaffMemberDto.description !== undefined)
+      staffMember.description = updateStaffMemberDto.description;
+    if (updateStaffMemberDto.schedule !== undefined)
+      staffMember.schedule = updateStaffMemberDto.schedule as any;
+    if (updateStaffMemberDto.serviceIds !== undefined)
+      staffMember.serviceIds = updateStaffMemberDto.serviceIds.map(
+        (id) => new Types.ObjectId(id),
+      );
+    if (updateStaffMemberDto.isActive !== undefined)
+      staffMember.isActive = updateStaffMemberDto.isActive;
+
     await staffMember.save();
 
     this.customLogger.log(
