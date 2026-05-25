@@ -3,6 +3,7 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  Query,
   Param,
   Body,
   Patch,
@@ -40,11 +41,15 @@ export class UserController {
   @ApiOperation({ summary: 'Get all users (Admin only)' })
   @ApiArrayResponseDecorator(200, 'Users retrieved successfully', User)
   @Get()
-  findAll(@Request() req: { user: { role: string } }) {
+  findAll(
+    @Request() req: { user: { role: string } },
+    @Query('limit') limit?: string,
+  ) {
     if (req.user.role !== 'admin') {
       throw new ForbiddenException('Only admin can access all users');
     }
-    return this.userService.findAll();
+    const parsedLimit = limit ? Number.parseInt(limit, 10) : undefined;
+    return this.userService.findAll(parsedLimit);
   }
 
   @ApiOperation({ summary: 'Get my profile' })

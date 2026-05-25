@@ -18,13 +18,16 @@ export class UserService {
     private readonly cloudinaryService: CloudinaryService,
   ) {}
 
-  async findAll() {
+  async findAll(limit?: number) {
     this.customLogger.log('Fetching all users', 'UserService');
-    const users = await this.userModel
+    const query = this.userModel
       .find()
+      .sort({ updatedAt: -1, createdAt: -1 })
       .select('-password')
       .populate('businessId', 'name')
-      .exec();
+      .limit(limit && limit > 0 ? limit : 0);
+
+    const users = await query.exec();
     return users;
   }
 
