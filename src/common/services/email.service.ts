@@ -239,14 +239,33 @@ export class EmailService {
     firstServiceDateTime: string,
     totalServices: number,
   ): Promise<void> {
-    const html = this.getEmailTemplate('booking-created-customer.html', {
-      customerName,
-      businessName,
-      bookingId,
-      firstServiceDateTime,
-      totalServices: totalServices.toString(),
-      year: new Date().getFullYear().toString(),
-    });
+    const viewUrl = String(config.app_url || config.frontend_url || '#');
+    const html = `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <h2>Booking Confirmed</h2>
+        <p>Hello ${customerName},</p>
+        <p>Your appointment with ${businessName} has been successfully confirmed.</p>
+
+        <h3>Booking Details</h3>
+        <table style="border-collapse: collapse;">
+          <tr><td style="padding:4px 8px;font-weight:600;">Booking ID</td><td style="padding:4px 8px;">${bookingId}</td></tr>
+          <tr><td style="padding:4px 8px;font-weight:600;">Service</td><td style="padding:4px 8px;">${totalServices > 1 ? totalServices + ' services' : '1 service'}</td></tr>
+          <tr><td style="padding:4px 8px;font-weight:600;">Date</td><td style="padding:4px 8px;">${firstServiceDateTime.split('T')[0] || firstServiceDateTime}</td></tr>
+          <tr><td style="padding:4px 8px;font-weight:600;">Time</td><td style="padding:4px 8px;">${new Date(firstServiceDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || firstServiceDateTime}</td></tr>
+          <tr><td style="padding:4px 8px;font-weight:600;">Status</td><td style="padding:4px 8px;">Confirmed</td></tr>
+        </table>
+
+        <h3>Business Information</h3>
+        <p>${businessName}</p>
+
+        <p>If you need assistance, please contact the business directly.</p>
+
+        <p style="margin:18px 0;"><a href="${viewUrl}/bookings/${bookingId}" style="background:#1766d9;color:#fff;padding:10px 14px;border-radius:4px;text-decoration:none;">View Booking</a></p>
+
+        <p style="color:#666;font-size:13px;">Thank you for choosing Bookerst,</p>
+        <p style="color:#666;font-size:13px;">We look forward to serving you<br/>Best regards,<br/>The Bookers Team<br/><a href="${viewUrl}" style="color:#1766d9;">${viewUrl.replace(/^https?:\/\//, '')}</a><br/>© ${new Date().getFullYear()} Bookersi. All rights reserved</p>
+      </div>
+    `;
 
     await this.sendEmail({
       to: email,
@@ -263,18 +282,75 @@ export class EmailService {
     firstServiceDateTime: string,
     totalServices: number,
   ): Promise<void> {
-    const html = this.getEmailTemplate('booking-created-business.html', {
-      businessName,
-      customerName,
-      bookingId,
-      firstServiceDateTime,
-      totalServices: totalServices.toString(),
-      year: new Date().getFullYear().toString(),
-    });
+    const viewUrl = String(config.app_url || config.frontend_url || '#');
+    const html = `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <h2>New Booking Received</h2>
+        <p>Hello ${businessName},</p>
+        <p>You have received a new booking.</p>
+
+        <h3>Booking Details</h3>
+        <table style="border-collapse: collapse;">
+          <tr><td style="padding:4px 8px;font-weight:600;">Booking ID</td><td style="padding:4px 8px;">${bookingId}</td></tr>
+          <tr><td style="padding:4px 8px;font-weight:600;">Customer</td><td style="padding:4px 8px;">${customerName}</td></tr>
+          <tr><td style="padding:4px 8px;font-weight:600;">Service</td><td style="padding:4px 8px;">${totalServices > 1 ? totalServices + ' services' : '1 service'}</td></tr>
+          <tr><td style="padding:4px 8px;font-weight:600;">Date</td><td style="padding:4px 8px;">${firstServiceDateTime.split('T')[0] || firstServiceDateTime}</td></tr>
+          <tr><td style="padding:4px 8px;font-weight:600;">Time</td><td style="padding:4px 8px;">${new Date(firstServiceDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || firstServiceDateTime}</td></tr>
+          <tr><td style="padding:4px 8px;font-weight:600;">Status</td><td style="padding:4px 8px;">Confirmed</td></tr>
+        </table>
+
+        <p style="margin:18px 0;"><a href="${viewUrl}/business/bookings/${bookingId}" style="background:#1766d9;color:#fff;padding:10px 14px;border-radius:4px;text-decoration:none;">View Booking</a></p>
+
+        <p style="color:#666;font-size:13px;">If you need assistance, please contact the business directly.</p>
+
+        <p style="color:#666;font-size:13px;">Best regards,<br/>The Bookers Team<br/>© ${new Date().getFullYear()} Bookersi. All rights reserved</p>
+      </div>
+    `;
 
     await this.sendEmail({
       to: email,
       subject: `New Booking Received (#${bookingId})`,
+      html,
+    });
+  }
+
+  /**
+   * Notify an assigned staff member about a new booking
+   */
+  async sendBookingCreatedStaffEmail(
+    staffEmail: string,
+    staffName: string,
+    businessName: string,
+    bookingId: string,
+    serviceName: string,
+    dateTime: string,
+  ): Promise<void> {
+    const viewUrl = String(config.app_url || config.frontend_url || '#');
+    const html = `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <h2>New Booking Assigned</h2>
+        <p>Hello ${staffName},</p>
+        <p>A new booking has been assigned to you at ${businessName}.</p>
+
+        <h3>Booking Details</h3>
+        <table style="border-collapse: collapse;">
+          <tr><td style="padding:4px 8px;font-weight:600;">Booking ID</td><td style="padding:4px 8px;">${bookingId}</td></tr>
+          <tr><td style="padding:4px 8px;font-weight:600;">Service</td><td style="padding:4px 8px;">${serviceName}</td></tr>
+          <tr><td style="padding:4px 8px;font-weight:600;">Date & Time</td><td style="padding:4px 8px;">${dateTime}</td></tr>
+          <tr><td style="padding:4px 8px;font-weight:600;">Status</td><td style="padding:4px 8px;">Confirmed</td></tr>
+        </table>
+
+        <p style="margin:18px 0;"><a href="${viewUrl}/staff/bookings/${bookingId}" style="background:#1766d9;color:#fff;padding:10px 14px;border-radius:4px;text-decoration:none;">View Booking</a></p>
+
+        <p style="color:#666;font-size:13px;">If you need assistance, please contact the business directly.</p>
+
+        <p style="color:#666;font-size:13px;">Best regards,<br/>The Bookers Team<br/>© ${new Date().getFullYear()} Bookersi. All rights reserved</p>
+      </div>
+    `;
+
+    await this.sendEmail({
+      to: staffEmail,
+      subject: `New Booking Assigned (#${bookingId})`,
       html,
     });
   }
