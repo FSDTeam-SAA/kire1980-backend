@@ -22,6 +22,8 @@ interface AppConfig {
   cloudinary_cloud_name: string;
   cloudinary_api_key: string;
   cloudinary_api_secret: string;
+  app_url?: string;
+  frontend_url?: string;
 }
 
 const config: AppConfig = {
@@ -48,6 +50,8 @@ const config: AppConfig = {
   cloudinary_cloud_name: process.env.CLOUDINARY_CLOUD_NAME || '',
   cloudinary_api_key: process.env.CLOUDINARY_API_KEY || '',
   cloudinary_api_secret: process.env.CLOUDINARY_API_SECRET || '',
+  app_url: process.env.APP_URL || process.env.FRONTEND_URL || '',
+  frontend_url: process.env.FRONTEND_URL || process.env.APP_URL || '',
 };
 
 export default config;
