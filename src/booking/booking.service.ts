@@ -62,6 +62,12 @@ export class BookingService {
       createBookingDto.businessId,
     );
     const seenSlots = new Set<string>();
+    const staffRecipients: Array<{
+      staffEmail: string;
+      staffName: string;
+      serviceName: string;
+      dateTime: string;
+    }> = [];
 
     for (const bookingItem of createBookingDto.services) {
       // Verify service exists and belongs to the business
@@ -123,6 +129,13 @@ export class BookingService {
           `Staff member ${staffMember.firstName} is not available on ${requestedDayStr} at ${requestedTimeStr}`,
         );
       }
+
+      staffRecipients.push({
+        staffEmail: staffMember.email,
+        staffName: `${staffMember.firstName} ${staffMember.lastName}`.trim(),
+        serviceName: service.serviceName,
+        dateTime: new Date(bookingItem.dateAndTime).toISOString(),
+      });
 
       // Prevent duplicate provider+time combinations in same request
       const slotKey = `${bookingItem.selectedProvider}_${new Date(bookingItem.dateAndTime).toISOString()}`;
@@ -191,10 +204,12 @@ export class BookingService {
         customerEmail: user.email,
         customerName,
         businessEmail: businessOwnerEmail,
+        businessEmails: [businessOwnerEmail, business.businessEmail],
         businessName,
         bookingId,
         firstServiceDateTime,
         totalServices: createBookingDto.services.length,
+        staffRecipients,
       });
     } catch (error) {
       this.customLogger.error(
@@ -672,6 +687,13 @@ export class BookingService {
     }
 
     // 3. Verify all services belong to this business
+    const staffRecipients: Array<{
+      staffEmail: string;
+      staffName: string;
+      serviceName: string;
+      dateTime: string;
+    }> = [];
+
     for (const service of createManualBookingDto.services) {
       const serviceDoc = await this.serviceModel.findById(service.serviceId);
       if (!serviceDoc) {
@@ -711,6 +733,18 @@ export class BookingService {
       if (!staffMember.isActive) {
         throw new BadRequestException(`Staff member is not active`);
       }
+
+      const serviceDoc = await this.serviceModel.findById(service.serviceId);
+      if (!serviceDoc) {
+        throw new NotFoundException(`Service ${service.serviceId} not found`);
+      }
+
+      staffRecipients.push({
+        staffEmail: staffMember.email,
+        staffName: `${staffMember.firstName} ${staffMember.lastName}`.trim(),
+        serviceName: serviceDoc.serviceName,
+        dateTime: new Date(service.dateAndTime).toISOString(),
+      });
     }
 
     // 5. Verify booking dates are in future
@@ -793,11 +827,16 @@ export class BookingService {
         customerEmail: customer?.email || '',
         customerName: customer?.fullName || 'Customer',
         businessEmail: business.businessEmail || '',
+        businessEmails: [
+          businessOwner.email || '',
+          business.businessEmail || '',
+        ],
         businessName: business.businessName,
         bookingId: booking._id.toString(),
         firstServiceDateTime:
           createManualBookingDto.services[0]?.dateAndTime || '',
         totalServices: createManualBookingDto.services.length,
+        staffRecipients,
       });
     } catch (error) {
       this.customLogger.warn(

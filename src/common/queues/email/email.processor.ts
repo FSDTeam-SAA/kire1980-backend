@@ -234,7 +234,7 @@ export class EmailProcessor extends WorkerHost {
           data.firstServiceDateTime,
           data.totalServices,
         );
-      } else {
+      } else if (data.recipientType === 'business') {
         await this.emailService.sendBookingCreatedBusinessEmail(
           data.recipientEmail,
           data.recipientName,
@@ -242,6 +242,15 @@ export class EmailProcessor extends WorkerHost {
           data.bookingId,
           data.firstServiceDateTime,
           data.totalServices,
+        );
+      } else {
+        await this.emailService.sendBookingCreatedStaffEmail(
+          data.recipientEmail,
+          data.recipientName,
+          data.businessName,
+          data.bookingId,
+          data.serviceName || 'Booked service',
+          data.dateTime || data.firstServiceDateTime,
         );
       }
 

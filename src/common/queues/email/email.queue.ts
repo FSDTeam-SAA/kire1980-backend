@@ -34,7 +34,7 @@ export interface AdminContactEmailJob {
 
 export interface BookingCreatedEmailJob {
   type: 'booking_created';
-  recipientType: 'customer' | 'business';
+  recipientType: 'customer' | 'business' | 'staff';
   recipientEmail: string;
   recipientName: string;
   customerName: string;
@@ -42,6 +42,9 @@ export interface BookingCreatedEmailJob {
   bookingId: string;
   firstServiceDateTime: string;
   totalServices: number;
+  serviceName?: string;
+  staffName?: string;
+  dateTime?: string;
 }
 
 export type EmailJob =
@@ -162,20 +165,29 @@ export class EmailQueueService {
   async sendBookingCreatedNotificationEmails(payload: {
     customerEmail: string;
     customerName: string;
-    businessEmail: string;
+    businessEmail?: string;
+    businessEmails?: string[];
     businessName: string;
     bookingId: string;
     firstServiceDateTime: string;
     totalServices: number;
+    staffRecipients?: Array<{
+      staffEmail: string;
+      staffName: string;
+      serviceName: string;
+      dateTime: string;
+    }>;
   }): Promise<void> {
     const {
       customerEmail,
       customerName,
       businessEmail,
+      businessEmails,
       businessName,
       bookingId,
       firstServiceDateTime,
       totalServices,
+      staffRecipients,
     } = payload;
 
     const baseJobOptions = {
@@ -188,7 +200,11 @@ export class EmailQueueService {
       removeOnFail: 500,
     };
 
-    await Promise.all([
+    const uniqueBusinessEmails = Array.from(
+      new Set([businessEmail, ...(businessEmails || [])].filter(Boolean)),
+    );
+
+    const bookingCreatedJobs = [
       this.emailQueue.add(
         'send-booking-created-customer',
         {
@@ -204,21 +220,45 @@ export class EmailQueueService {
         } as BookingCreatedEmailJob,
         baseJobOptions,
       ),
-      this.emailQueue.add(
-        'send-booking-created-business',
-        {
-          type: 'booking_created',
-          recipientType: 'business',
-          recipientEmail: businessEmail,
-          recipientName: businessName,
-          customerName,
-          businessName,
-          bookingId,
-          firstServiceDateTime,
-          totalServices,
-        } as BookingCreatedEmailJob,
-        baseJobOptions,
+      ...uniqueBusinessEmails.map((recipientEmail) =>
+        this.emailQueue.add(
+          'send-booking-created-business',
+          {
+            type: 'booking_created',
+            recipientType: 'business',
+            recipientEmail,
+            recipientName: businessName,
+            customerName,
+            businessName,
+            bookingId,
+            firstServiceDateTime,
+            totalServices,
+          } as BookingCreatedEmailJob,
+          baseJobOptions,
+        ),
       ),
-    ]);
+      ...(staffRecipients || []).map((recipient) =>
+        this.emailQueue.add(
+          'send-booking-created-staff',
+          {
+            type: 'booking_created',
+            recipientType: 'staff',
+            recipientEmail: recipient.staffEmail,
+            recipientName: recipient.staffName,
+            customerName,
+            businessName,
+            bookingId,
+            firstServiceDateTime: recipient.dateTime,
+            totalServices,
+            serviceName: recipient.serviceName,
+            staffName: recipient.staffName,
+            dateTime: recipient.dateTime,
+          } as BookingCreatedEmailJob,
+          baseJobOptions,
+        ),
+      ),
+    ];
+
+    await Promise.all(bookingCreatedJobs);
   }
 }
