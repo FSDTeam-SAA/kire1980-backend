@@ -260,8 +260,6 @@ export class EmailService {
 
         <p>If you need assistance, please contact the business directly.</p>
 
-        <p style="margin:18px 0;"><a href="${viewUrl}/bookings/${bookingId}" style="background:#1766d9;color:#fff;padding:10px 14px;border-radius:4px;text-decoration:none;">View Booking</a></p>
-
         <p style="color:#666;font-size:13px;">Thank you for choosing Bookerst,</p>
         <p style="color:#666;font-size:13px;">We look forward to serving you<br/>Best regards,<br/>The Bookers Team<br/><a href="${viewUrl}" style="color:#1766d9;">${viewUrl.replace(/^https?:\/\//, '')}</a><br/>© ${new Date().getFullYear()} Bookersi. All rights reserved</p>
       </div>
@@ -298,8 +296,6 @@ export class EmailService {
           <tr><td style="padding:4px 8px;font-weight:600;">Time</td><td style="padding:4px 8px;">${new Date(firstServiceDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || firstServiceDateTime}</td></tr>
           <tr><td style="padding:4px 8px;font-weight:600;">Status</td><td style="padding:4px 8px;">Confirmed</td></tr>
         </table>
-
-        <p style="margin:18px 0;"><a href="${viewUrl}/business/bookings/${bookingId}" style="background:#1766d9;color:#fff;padding:10px 14px;border-radius:4px;text-decoration:none;">View Booking</a></p>
 
         <p style="color:#666;font-size:13px;">If you need assistance, please contact the business directly.</p>
 
@@ -339,8 +335,6 @@ export class EmailService {
           <tr><td style="padding:4px 8px;font-weight:600;">Date & Time</td><td style="padding:4px 8px;">${dateTime}</td></tr>
           <tr><td style="padding:4px 8px;font-weight:600;">Status</td><td style="padding:4px 8px;">Confirmed</td></tr>
         </table>
-
-        <p style="margin:18px 0;"><a href="${viewUrl}/staff/bookings/${bookingId}" style="background:#1766d9;color:#fff;padding:10px 14px;border-radius:4px;text-decoration:none;">View Booking</a></p>
 
         <p style="color:#666;font-size:13px;">If you need assistance, please contact the business directly.</p>
 
